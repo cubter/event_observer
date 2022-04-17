@@ -13,46 +13,74 @@ ui <- bootstrapPage(
     
     leafletOutput("map", width="100%", height="100%"),
     
-    absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                  draggable = TRUE, 
-                  top = 60, 
-                  left = "auto", 
-                  right = 20, 
-                  bottom = "auto",
-                  width = 330, 
-                  height = "auto",
-                  style = "opacity: 0.75; padding: 0 20px 20px 20px;transition: opacity 500ms 1s;",
-                  
-                  h2("Species observer"),
-                  
-                  selectizeInput("species", 
-                                 label = "Search species.", 
-                                 choices = NULL, 
-                                 options = list(placeholder = 'Select species')),
-                  selectizeInput("colors", "Color Scheme",
-                                 rownames(subset(brewer.pal.info, category %in% c("div")))
-                  )
+    absolutePanel(
+        id = "controls", 
+        class = "panel panel-default", 
+        fixed = TRUE, 
+        draggable = TRUE, 
+        top = 60, 
+        left = "auto", 
+        right = 20, 
+        bottom = "auto",
+        width = 330, 
+        height = "auto",
+        style = "opacity: 0.75; padding: 0 20px 20px 20px;transition: opacity 500ms 1s;",
+        
+        h2("Species observer"),
+        
+        selectizeInput(
+            "species", 
+             label = "Search species.", 
+             choices = NULL, 
+             options = list(placeholder = 'Select species')),
+        
+        dateRangeInput(
+            "dates", 
+            label = h5("Choose dates (optional)"),
+            start = "1000-01-01",
+            min = "1000-01-01",
+            max = Sys.Date(),
+            end = Sys.Date(),
+            format = "yyyy-MM-dd",
+            startview = "year"),
+        
+        selectizeInput(
+            "colors", 
+            "Color Scheme",
+            rownames(subset(brewer.pal.info, category %in% c("seq")))),
+        
+        h5(HTML("<b>Cluster nearby positions on the map?</b>")),      
+          
+        switchInput(
+            inputId = "clustering",
+            size = "mini"
+        )    
     ),
     
     conditionalPanel(
         condition = 'input.species == ""',
-        absolutePanel(id = "statistics", class = "panel panel-default", fixed = TRUE,
-                      draggable = TRUE, 
-                      top = 60,
-                      left = 20,
-                      right = "auto",
-                      bottom = "auto",
-                      width = 350,
-                      height = "auto",
-                      style = "opacity: 0.75; padding: 0 20px 20px 20px",
-                      
-                      h3("Statistics", align = "right"),
-                      h3(textOutput("total_species"), align = "right"),
-                      h4(textOutput("total_records_count_reactive"), align = "right"),
-                      h5(textOutput("date_reactive"), align = "right"),
-                      
-                      plotlyOutput("top_years", 
-                                   height = "320px", width = "auto")
+        absolutePanel(
+            id = "statistics", 
+            class = "panel panel-default", 
+            fixed = TRUE,
+            draggable = TRUE, 
+            top = 60,
+            left = 20,
+            right = "auto",
+            bottom = "auto",
+            width = 350,
+            height = "auto",
+            style = "opacity: 0.75; padding: 0 10px 20px 20px",
+            
+            h3("Statistics", align = "right"),
+            h3(textOutput("total_species"), align = "right"),
+            h4(textOutput("total_records_count_reactive"), align = "right"),
+            h5(textOutput("date_reactive"), align = "right"),
+            
+            plotlyOutput("top_years", height = "320px", width = "auto"),
+            h5("\n", align = "center"),
+            h5("\n", align = "center"),
+            plotlyOutput("last_ten_years", height = "220px", width = "auto"),
         )
     ),
     
@@ -70,7 +98,8 @@ ui <- bootstrapPage(
 
                       h4("Species timeline", align = "center", top = "10px"),
                       
-                      # h3(tableOutput("db_error"), align = "center"),
+                      # h6(textOutput("num_events"), align = "center"),
+                      # TODO h3(tableOutput("db_error"), align = "center"),
                       plotlyOutput("timeline", height = "140px", width = "100%")
          )
     )
