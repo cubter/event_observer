@@ -9,18 +9,25 @@ library(magrittr)
 library(purrr)
 library(lobstr)
 library(redux)
+```
 
-occurr = read.csv2("occurence.csv", sep = ",", stringsAsFactors = F, 
-                check.names = T, 
-                nrows = 200000)
+
+```{r}
+occurr = read.csv2("Data/occurence.csv", sep = ",", stringsAsFactors = F, 
+                    check.names = T,
+                   nrows = 300000)
 
 occurr = occurr[c("scientificName", "vernacularName", "latitudeDecimal", "longitudeDecimal", "eventDate", "eventTime")]
 ```
 
+
 Constructs a reverted index, containing key-value pairs, where key is a species' 
 scientific name, and value is a list containing vernacular name, latitude, longitude, 
 date & time of the event.
+Note: perhaps I should have parallelized the loop (using `future` pkg e.g.), but I
+suppose I have a data dependency here.
 ```{r}
+#TODO: check if sci name size exceeds 10000 bytes
 construct_index <- function(scientific_name, vernacular_name, lat, long, event_date, event_time, 
                             row_num) 
 {
@@ -53,74 +60,6 @@ purrr::pwalk(list(occurr$scientificName,
              ~ construct_index(..1, ..2, ..3, ..4, ..5, ..6, ..7))
 ```
 
-
-```{r}
-# write_redis_coordinates <- function(env, env_key, lat, long, file_name)
-# {
-#     if (!is.null(env[[env_key]]$lat) && !is.null(env[[env_key]]$long))
-#     {
-#         write.table("LPUSH", file_name, 
-#                     sep = "", eol = " ", row.names = F, col.names = F, quote = F, append = T) 
-#         write.table(paste(env_key, "coord", sep = ":"), file_name, 
-#                     sep = " ", eol = " ", row.names = F, col.names = F, append = T) 
-#         map2(env[[env_key]][[lat]], env[[env_key]][[long]],
-#              ~ write.table(paste(.x, .y, sep = ","), file_name, 
-#                             sep = " ", eol = " ", row.names = F, col.names = F, append = T))
-#         write.table('', file_name, row.names = F, col.names = F, append = T, quote = F)
-#         
-#         env[[env_key]][[lat]] <- NULL
-#         env[[env_key]][[long]] <- NULL
-#     }
-# }
-# 
-# write_redis_date_time <- function(env, env_key, event_date, event_time, file_name)
-# {
-#     if (!is.null(env[[env_key]]$event_date) && !is.null(env[[env_key]]$event_time))
-#     {
-#         write.table("LPUSH", file_name, 
-#                     sep = "", eol = " ", row.names = F, col.names = F, quote = F, append = T) 
-#         write.table(paste(env_key, "datetime", sep = ":"), file_name, 
-#                     sep = " ", eol = " ", row.names = F, col.names = F, append = T) 
-#         map2(env[[env_key]][[event_date]], env[[env_key]][[event_time]],
-#              ~ write.table(paste(.x, .y, sep = ","), file_name, 
-#                            sep = " ", eol = " ", row.names = F, col.names = F, append = T))
-#         write.table('', file_name, row.names = F, col.names = F, append = T, quote = F)
-#         
-#         env[[env_key]][[event_date]] <- NULL
-#         env[[env_key]][[event_time]] <- NULL
-#     }
-# }
-# 
-# write_redis_names <- function(env, env_key, scientific_name, vernacular_name,
-#                               elem_title, file_name)
-# {
-#     if (!is.null(env[[env_key]][[elem_title]]))
-#     {
-#         write.table(vernacular_name, file_name, 
-#                     sep = " ", eol = " ", row.names = F, col.names = F, append = T)
-#         write.table(scientific_name, file_name, 
-#                     sep = " ", eol = " ", row.names = F, col.names = F, append = T) 
-#         
-#         env[[env_key]][[elem_title]] <- NULL
-#     }
-# }
-```
-
-```{r}
-# write.table("", "redis_coordinates.txt", row.names = F, col.names = F, quote = F)
-# walk(occurr$scientificName, 
-#      ~ write_redis_coordinates(e1, .x, "lat", "long", "redis_coordinates.txt"))
-# 
-# write.table("", "redis_date_time.txt", row.names = F, col.names = F, quote = F)
-# walk(occurr$scientificName, 
-#      ~ write_redis_date_time(e1, .x, "event_date", "event_time", "redis_date_time.txt"))
-# 
-# write.table("HMSET vernacular_name:scientific_name", "redis_names.txt", 
-#             row.names = F, col.names = F, quote = F, eol = " ")
-# walk2(occurr$scientificName, occurr$vernacularName,
-#      ~ write_redis_names(e1, .x, .x, .y, "vernacular_name", "redis_names.txt"))
-# write.table('', "redis_names.txt", row.names = F, col.names = F, append = T, quote = F)
-```
 
 Functions that construct appropriate Redis' functions.
 ```{r}
@@ -159,13 +98,18 @@ set_redis_name_pairs <- function(scientific_name, vernacular_name,
     return(redis$HSET(scheme_name, vernacular_name, scientific_name))
 }
 
-incremenet_redis_num_records <- function(hash_name, val)
+increment_redis_num_events <- function(hash_name, val)
 {
     if (!r$EXISTS(hash_name))
     {
         r$HSET(hash_name, "value", 0)
     }
-    r$HINCRBY(hash_name, "value", val)
+    return(r$HINCRBY(hash_name, "value", val))
+}
+
+set_years_distribution <- function(sorted_set_name, score, member)
+{
+    return(r$ZINCRBY(sorted_set_name, score, member))
 }
 ```
 
@@ -173,6 +117,8 @@ Setting connection to Redis.
 ```{r echo=F, include=F}
 r <- redux::hiredis()
 redis <- redux::redis
+#TODEL
+r$FLUSHDB()
 ```
 
 Pipelining data to Redis.
@@ -192,5 +138,23 @@ cmds <- map2(occurr$scientificName, occurr$vernacularName,
              ~ set_redis_name_pairs(.x, .y, "vernacular_name:scientific_name"))
 r$pipeline(.commands = cmds)
 
-incremenet_redis_num_records("num_records", nrow(occurr))
+increment_redis_num_events("num_events", nrow(occurr))
+
+years_distribution <- format(as.Date(occurr$eventDate),"%Y") %>% 
+    table()
+
+# cmds <- map2(years_distribution, names(years_distribution),
+             # ~ set_years_distribution("yd0", .x, .y))
+
+for (i in seq_along(years_distribution)) {
+    r$ZINCRBY("yt5", years_distribution[i], names(years_distribution)[i])
+    cat(i, "\n")
+}
+
+walk2(years_distribution, names(years_distribution),
+      ~ r$ZINCRBY("year_count", .x, .y))
+
+# r$pipeline(.commands = cmds)
 ```
+
+
