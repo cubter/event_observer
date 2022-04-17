@@ -32,7 +32,11 @@ ui <- bootstrapPage(
             "species", 
              label = "Search species.", 
              choices = NULL, 
-             options = list(placeholder = 'Select species')),
+             options = list(
+                 placeholder = 'Select species', 
+                 onInitialize = I('function() { this.setValue(""); }')
+                 )
+            ),
         
         dateRangeInput(
             "dates", 
@@ -49,12 +53,14 @@ ui <- bootstrapPage(
             "Color Scheme",
             rownames(subset(brewer.pal.info, category %in% c("seq")))),
         
-        h5(HTML("<b>Cluster nearby positions on the map?</b>")),      
+        h5(HTML("<b>Cluster nearby events on the map?</b>")),      
           
         switchInput(
             inputId = "clustering",
             size = "mini"
-        )    
+        ),  
+        
+        downloadButton("download", "Download selected species' events")
     ),
     
     conditionalPanel(
@@ -78,29 +84,28 @@ ui <- bootstrapPage(
             h5(textOutput("date_reactive"), align = "right"),
             
             plotlyOutput("top_years", height = "320px", width = "auto"),
-            h5("\n", align = "center"),
-            h5("\n", align = "center"),
             plotlyOutput("last_ten_years", height = "220px", width = "auto"),
         )
     ),
     
     conditionalPanel(
         condition = 'input.species != ""',
-        absolutePanel(id = "timeline", class = "panel panel-default", fixed = TRUE,
-                      draggable = TRUE,
-                      top = "auto",
-                      left = 70,
-                      right = 70,
-                      bottom = 20,
-                      width = "auto",
-                      height = 180,
-                      style = "opacity: 0.75; padding: 0 5px 5px 5px",
-
-                      h4("Species timeline", align = "center", top = "10px"),
-                      
-                      # h6(textOutput("num_events"), align = "center"),
-                      # TODO h3(tableOutput("db_error"), align = "center"),
-                      plotlyOutput("timeline", height = "140px", width = "100%")
-         )
+        absolutePanel(
+            id = "timeline", 
+            class = "panel panel-default", 
+            fixed = TRUE,
+            draggable = TRUE,
+            top = "auto",
+            left = 70,
+            right = 70,
+            bottom = 20,
+            width = "auto",
+            height = 180,
+            style = "opacity: 0.75; padding: 0 5px 5px 5px",
+            
+            h4("Species timeline", align = "center", top = "10px"),
+            
+            plotlyOutput("timeline", height = "140px", width = "100%")
+            )
     )
 )

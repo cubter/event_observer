@@ -39,22 +39,31 @@ server <- function(input, output, session)
     updateSelectizeInput(
         session, 'species', 
         choices = species, 
-        server = TRUE,
-        options = list(onInitialize = I('function() { this.setValue(""); }')))
+        server = TRUE
+        )
     
-    output$date_reactive <- renderText({
-        format(Sys.Date(),"%d %B %Y")
+    # Shows the date of the last DB update.
+    output$date_reactive <- renderText(
+    {
+        upd <- r$LRANGE("update_date", 0, -1)
+        
+        ifelse(upd %>% is_empty() %>% not(),
+               paste0("Update on: ", format(as.Date(upd[[1]]), "%d %B %Y")),
+               "Last update's date uknown")
     })
     
+    # Displays total number of species in the DB.
     output$total_species <- renderText({
-        paste0(prettyNum(length(vals), big.mark=","), "</b> species")
+        paste0(prettyNum(length(vals), big.mark=","), "species")
     })
     
+    # Displays total events in the DB.
     output$total_records_count_reactive <- renderText({
         num_events <- r$HGET("num_events", "value")
         paste0(prettyNum(num_events, big.mark=","), " events")
     })
     
+    # Processes user's input for species.
     filteredData <- reactive(
     {
         species = input$species
@@ -146,6 +155,7 @@ server <- function(input, output, session)
         year_plot 
     })
     
+    # Draws the plot containing the data for the last ten years.
     output$last_ten_years <- renderPlotly(
     {
         year_plot <- plot_ly(
@@ -194,16 +204,10 @@ server <- function(input, output, session)
         year_plot 
     })
     
-    timelineData <- reactive(
+    # Constructs a tibble with events data. Returns empty tibble if no data
+    # have been found in the DB or if an empty species input is provided.
+    eventsData <- reactive(
     {
-        # tryCatch(
-        # {
-        #     filteredData()[[1]][1, 1]
-        # },
-        # error = function(e)
-        # {
-        #     return(tibble(NULL))
-        # })
         if (filteredData()[[1]][[1]][[1]] == "")
             return(tibble(NULL))
         
@@ -219,8 +223,25 @@ server <- function(input, output, session)
             coord = paste(space_data$lat, space_data$long, sep = ", "),
             # 0.25 here is an arbitrary number, which is close to log(1.2, 2).
             # It helps to scale down coordinate differences.
-            weight = 0.5
+            weight = 0.25
         )
+        
+        # Assuming the number of observations for species is not huge  (<= 500) on avg.,
+        # I'm linearly finding (a more optimal solution would include e.g. named lists,
+        # but I don't see the need for them here.) each row corresponding to the date 
+        # provided and assign it a weight  Then, cumulative sum for each date
+        # is calculated. This will let different events to have different y coordinates
+        # in the plot (i.e. to e drawn separately).
+        calc_weight <- function(date)
+        {
+            indexes <- (out$date == date) %>% which()
+            out[indexes, "weight"] <<- cumsum(out[indexes, "weight"])
+        }
+        unique_dates <- out$date %>% unique()
+        walk(unique_dates, calc_weight)
+        
+        # Setting empty time to "None"
+        out$time[map_lgl(out$time, ~ .x == "")] <- "None"
         
         return(out)
     }
@@ -228,7 +249,7 @@ server <- function(input, output, session)
     
     # Returns the set of points which are within the map bounds right now.
     observationsInBoundsData <- reactive({
-        timeline_data <- timelineData()
+        timeline_data <- eventsData()
         
         if (is.null(input$map_bounds) || timeline_data %>% is_empty())
             return(timeline_data[FALSE, ])
@@ -240,12 +261,11 @@ server <- function(input, output, session)
         return(subset(
             timeline_data, 
             lat >= lat_rng[1] & lat <= lat_rng[2] & 
-                long >= long_rng[1] & long <= long_rng[2]))
+                long >= long_rng[1] & long <= long_rng[2])
+            )
     })
         
-    
-    
-    # validate(need(timeline_data %>% is_empty() %>% not(), "None"))
+    # Draws timeline plot for the species selected.
     output$timeline <- renderPlotly(
     {
         timeline_data <- observationsInBoundsData()
@@ -272,23 +292,7 @@ server <- function(input, output, session)
         timeline_data %<>% 
             filter(., (events_dates <= end | is.na(events_dates)) &
                        (events_dates >= start | is.na(events_dates)))
-        
-        # Assuming the number of observations for each species is not huge (<= 500),
-        # I'm linearly finding each row corresponding to the date provided
-        # and assign it a weight (a more optimal solution would include e.g. named lists,
-        # but I don't see the need for them here.) Then, cumulative sum for each date
-        # is calculated This will let different events to have different y coordinates
-        # in the plot (i.e. to e drawn separately).
-        calc_weight <- function(date, timeline_data)
-        {
-            indexes <- (timeline_data$date == date) %>% which()
-            timeline_data[indexes, "weight"] <<- cumsum(timeline_data[indexes, "weight"])
-        }
-        unique_dates <- timeline_data$date %>% unique()
-        walk(unique_dates, ~ calc_weight(.x, timeline_data))
-
-        timeline_data$time[map_lgl(timeline_data$time, ~ .x == "")] <- "None"
-
+    
         # Drawing a plot.
         time_plot <- plot_ly(
             data = timeline_data, x = ~date, y = ~weight,
@@ -322,14 +326,7 @@ server <- function(input, output, session)
     }
     )
     
-    num_events <- renderText(
-    {
-        if (!is.null(timelineData()))
-            nrow(timelineData())
-    }
-    )
-    
-    # Reactive expression for color.
+    # Returns color acc. to the user's selection.
     colorScheme <- reactive(
     {
         # 7 is just dark enough to be well seen on the map.
@@ -340,6 +337,7 @@ server <- function(input, output, session)
     }
     )
     
+    # Draws naked map.
     output$map <- renderLeaflet(
     {
         # Static maps without markers, hence leaflet() instead of leafletProxy().
@@ -348,6 +346,7 @@ server <- function(input, output, session)
         setView(lng = 0, lat = 25, zoom = 3)
     })
     
+    # Returns options to be used for clustering events on the map.
     clustering <- reactive(
     {
         # If clustering is enabled, perform leaflet's clusering.
@@ -358,9 +357,11 @@ server <- function(input, output, session)
     }
     )
     
+    # Observer responsible for drawing markers on the map according to the species
+    # selected.
     observe(
     {
-        map_data <- timelineData()
+        map_data <- eventsData()
         
         if (map_data %>% is_empty())
             return(FALSE)
@@ -387,5 +388,27 @@ server <- function(input, output, session)
                 fillOpacity = 0.6,
                 popup = map_data$popup)
     })
+    
+    # Downloader.      
+    output$download <- downloadHandler(
+        filename = function() 
+        {
+            return("events_data.csv")
+        },
+        content = function(file) 
+        {
+            if (eventsData() %>% is_empty()) 
+            {
+                data <- tibble(lat = "", long = "", date = "", time = "")
+            }
+            else 
+            {
+                data <- eventsData()[, c("lat", "long", "date", "time")]
+                data %<>% dplyr::mutate(., input$species) 
+            }
+
+            write.csv(data, file, row.names = FALSE)
+        }
+    )
 
 }
