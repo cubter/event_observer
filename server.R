@@ -7,6 +7,7 @@ library(magrittr)
 library(plotly)
 library(tibble)
 library(shinyWidgets)
+library(dplyr)
 
 r <- redux::hiredis()
 
@@ -28,9 +29,11 @@ year_indexes <- map2_lgl(all_years_count, seq_along(all_years_count),
                          ~ (.y %% 2 == 1))
 all_years <- tibble(year = all_years_count[year_indexes] %>% as.integer(),
                     score = all_years_count[!year_indexes] %>% as.integer())
-last_ten_years %<>% filter(., year %in% (year %>% sort(decreasing = T))[1:10])
+last_ten_years <- filter(all_years, year %in% (year %>% sort(decreasing = T))[1:10])
 
-# Define server logic required to draw a histogram
+num_events <- r$HGET("num_events", "value")
+last_update_date <- r$LRANGE("update_date", 0, -1)
+
 server <- function(input, output, session) 
 {
     # Server-side selectize is a performance improvement, since it uses R for the search,
@@ -40,28 +43,22 @@ server <- function(input, output, session)
         session, 'species', 
         choices = species, 
         server = TRUE
-        )
-    
-    # Shows the date of the last DB update.
-    output$date_reactive <- renderText(
+    )
+
+    # Returns color acc. to the user's selection.
+    colorScheme <- reactive(
     {
-        upd <- r$LRANGE("update_date", 0, -1)
-        
-        ifelse(upd %>% is_empty() %>% not(),
-               paste0("Update on: ", format(as.Date(upd[[1]]), "%d %B %Y")),
-               "Last update's date uknown")
-    })
+        # 7 is just dark enough to be well seen on the map.
+        if (input$colors != "")
+            return(brewer.pal(7, input$colors)[7])
+        else 
+            return("#FFFFFF")
+    }
+    )    
     
-    # Displays total number of species in the DB.
-    output$total_species <- renderText({
-        paste0(prettyNum(length(vals), big.mark=","), "species")
-    })
-    
-    # Displays total events in the DB.
-    output$total_records_count_reactive <- renderText({
-        num_events <- r$HGET("num_events", "value")
-        paste0(prettyNum(num_events, big.mark=","), " events")
-    })
+    statisticsServer(
+        "statistics", top_years, last_ten_years, length(vals), num_events, 
+        last_update_date)
     
     # Processes user's input for species.
     filteredData <- reactive(
@@ -69,7 +66,7 @@ server <- function(input, output, session)
         species = input$species
         
         if (species == "")
-            return(list("", ""))
+            return(list())
         
         coordinates <- r$LRANGE(paste(species, "coord", sep = ":"), 0, -1)
         datetime <- r$LRANGE(paste(species, "datetime", sep = ":"), 0, -1)
@@ -78,11 +75,11 @@ server <- function(input, output, session)
         # hence, we need to get the scientific name first.
         if (coordinates %>% is_empty())
         {
-            sci_name <- r$HGET(
-                "vernacular_name:scientific_name", species)
+            sci_name <- r$HGET("vernacular_name:scientific_name", species)
+            
             # If no appropriate scientific name has been found.
             if (sci_name %>% is.null())
-                return(list("", ""))
+                return(list())
             
             coordinates <-
                 r$LRANGE(paste(sci_name, "coord", sep = ":"), 0, -1)
@@ -91,7 +88,7 @@ server <- function(input, output, session)
         }
         
         if (coordinates[[1]] == "" && (length(coordinates) == 1))
-            return(list("", ""))
+            return(list())
         
         coordinates %<>%
             stringr::str_split(",", simplify = T)
@@ -103,118 +100,22 @@ server <- function(input, output, session)
         datetime %<>% tibble::as_tibble()
         
         colnames(datetime) <- c("date", "time")
-    
+        
         return(list(tibble::tibble(lat, long), datetime))
     })
     
-    output$top_years <- renderPlotly(
-    {
-        year_plot <- plot_ly(
-            data = top_years, 
-            x = ~year, 
-            y = ~year_share,
-            type = "scatter",
-            mode = "markers",
-            text = ~paste(score, "observations", "<br><b>Year</b>:", year,
-                          "<br><b>Share</b>:", year_share, "%"),
-            hoverinfo = "text",
-            showlegend = FALSE, 
-            marker = list(
-                size = ~log(score, 1.5),
-                opacity = 0.6,
-                line = list(width = 0))
-            )
-            
-        year_plot %<>% config(., scrollZoom = TRUE) %>%
-            layout(
-                xaxis = list(
-                    showgrid = FALSE, 
-                    zeroline = FALSE,
-                    title = list(
-                        text = "<b>Top ten years, by events</b>",
-                        family = "Courier",
-                        size = 13),
-                    tickfont = list(
-                        family = "Courier",
-                        size = 13)
-                ),
-                yaxis = list(
-                    showgrid = FALSE, 
-                    zeroline = FALSE,
-                    title = list(
-                        text = "Percent",
-                        family = "Courier",
-                        size = 13),
-                    tickfont = list(
-                        family = "Courier",
-                        size = 13)
-                ),
-                showlegend = FALSE
-            )
-        
-        year_plot 
-    })
-    
-    # Draws the plot containing the data for the last ten years.
-    output$last_ten_years <- renderPlotly(
-    {
-        year_plot <- plot_ly(
-            data = last_ten_years, 
-            color = I(brewer.pal(7, "Blues")[6]),
-            type = "bar",
-            showlegend = FALSE
-        )
-        year_plot %<>% add_bars(
-            x = ~year, 
-            y = ~log(score, 2),
-            width = 0.3,
-            hovertemplate = ~paste(
-                "<b>Year</b>:", year, "<br><b>Count</b>:",
-                score, "<extra></extra>"),
-            marker = list(opacity = 0.7)
-        )
-        
-        year_plot %<>% config(., scrollZoom = TRUE) %>%
-            layout(
-                xaxis = list(
-                    showgrid = FALSE, 
-                    zeroline = FALSE,
-                    title = list(
-                        text = "<b>Last ten years dynamics</b>",
-                        family = "Courier",
-                        size = 13),
-                    tickfont = list(
-                        family = "Courier",
-                        size = 13)
-                ),
-                yaxis = list(
-                    showgrid = FALSE, 
-                    zeroline = FALSE,
-                    title = list(
-                        text = "N events (log2)",
-                        family = "Courier",
-                        size = 13),
-                    tickfont = list(
-                        family = "Courier",
-                        size = 13)
-                ),
-                showlegend = FALSE
-            )
-        
-        year_plot 
-    })
-    
-    # Constructs a tibble with events data. Returns empty tibble if no data
+    # Constructs a tibble with events data, assigns weights to different events,
+    # which are used later for the timeline. Returns empty tibble if no data
     # have been found in the DB or if an empty species input is provided.
     eventsData <- reactive(
     {
-        if (filteredData()[[1]][[1]][[1]] == "")
+        if (filteredData() %>% is_empty())
             return(tibble(NULL))
-        
+
         f_data <- filteredData()
         space_data <- f_data[[1]]
         dt_data <- f_data[[2]]
-        
+
         out <- tibble(
             date = dt_data$date,
             time = dt_data$time,
@@ -225,10 +126,20 @@ server <- function(input, output, session)
             # It helps to scale down coordinate differences.
             weight = 0.25
         )
-        
+
+        # Filtering the dates acc. to user's input
+        user_dates <- input$dates
+        events_dates <- as.Date(out$date)
+        start <- as.Date(user_dates[1])
+        end <- as.Date(user_dates[2])
+
+        out %<>% filter(
+            (events_dates <= end | is.na(events_dates)) &
+                (events_dates >= start | is.na(events_dates)))
+
         # Assuming the number of observations for species is not huge  (<= 500) on avg.,
         # I'm linearly finding (a more optimal solution would include e.g. named lists,
-        # but I don't see the need for them here.) each row corresponding to the date 
+        # but I don't see the need for them here.) each row corresponding to the date
         # provided and assign it a weight  Then, cumulative sum for each date
         # is calculated. This will let different events to have different y coordinates
         # in the plot (i.e. to e drawn separately).
@@ -239,117 +150,18 @@ server <- function(input, output, session)
         }
         unique_dates <- out$date %>% unique()
         walk(unique_dates, calc_weight)
-        
+
         # Setting empty time to "None"
         out$time[map_lgl(out$time, ~ .x == "")] <- "None"
-        
+
         return(out)
     }
     )
     
-    # Returns the set of points which are within the map bounds right now.
-    observationsInBoundsData <- reactive({
-        timeline_data <- eventsData()
-        
-        if (is.null(input$map_bounds) || timeline_data %>% is_empty())
-            return(timeline_data[FALSE, ])
-        
-        bounds <- input$map_bounds
-        lat_rng <- range(bounds$north, bounds$south)
-        long_rng <- range(bounds$east, bounds$west)
-        
-        return(subset(
-            timeline_data, 
-            lat >= lat_rng[1] & lat <= lat_rng[2] & 
-                long >= long_rng[1] & long <= long_rng[2])
-            )
-    })
-        
-    # Draws timeline plot for the species selected.
-    output$timeline <- renderPlotly(
-    {
-        timeline_data <- observationsInBoundsData()
-        
-        # TODO: proper handling
-        if (timeline_data %>% is_empty())
-            return()
-        
-        # Converts vector ("date_vec") values to dates and compares each value with 
-        # "date" returning a logical vector. 
-        compare_range <- function(date_vec, op, date) 
-        { 
-            date_vec %<>% as.Date()
-            date %<>% as.Date()
-            out <- is.na(date_vec) | op(date_vec, dt)
-            return(out) 
-        }
-        
-        user_dates <- input$dates 
-        events_dates <- as.Date(timeline_data$date) 
-        start <- as.Date(user_dates[1])
-        end <- as.Date(user_dates[2])
-        
-        timeline_data %<>% 
-            filter(., (events_dates <= end | is.na(events_dates)) &
-                       (events_dates >= start | is.na(events_dates)))
-    
-        # Drawing a plot.
-        time_plot <- plot_ly(
-            data = timeline_data, x = ~date, y = ~weight,
-            type = "scatter",
-            # popup text
-            hovertemplate = ~paste(
-                "<b>Place</b>:", coord, "<br><b>Time</b>:",
-                time, "<extra></extra>")
-            )
-        # Styling the plot.
-        time_plot %<>% config(., scrollZoom = TRUE) %>%
-            layout(
-                yaxis = list(
-                    showgrid = TRUE,
-                    zeroline = FALSE,
-                    gridcolor = "#f6f6f6",
-                    title = FALSE,
-                    showticklabels = FALSE),
-                xaxis = list(
-                    showgrid = TRUE,
-                    zeroline = FALSE,
-                    gridcolor = "#f6f6f6",
-                    title = FALSE,
-                    tickfont = list(
-                        family = "Courier",
-                        size = 13)
-                    )
-                )
-
-        time_plot
-    }
-    )
-    
-    # Returns color acc. to the user's selection.
-    colorScheme <- reactive(
-    {
-        # 7 is just dark enough to be well seen on the map.
-        if (input$colors != "")
-            return(brewer.pal(7, input$colors)[7])
-        else 
-            return("#FFFFFF")
-    }
-    )
-    
-    # Draws naked map.
-    output$map <- renderLeaflet(
-    {
-        # Static maps without markers, hence leaflet() instead of leafletProxy().
-        leaflet() %>%
-        addTiles() %>%
-        setView(lng = 0, lat = 25, zoom = 3)
-    })
-    
-    # Returns options to be used for clustering events on the map.
+    # Returns leaflet::markerClusterOptions(), if clustering is enabled to be used for
+    # clustering events on the map.
     clustering <- reactive(
     {
-        # If clustering is enabled, perform leaflet's clusering.
         if (!input$clustering)
             return(NULL)
         else
@@ -357,54 +169,54 @@ server <- function(input, output, session)
     }
     )
     
-    # Observer responsible for drawing markers on the map according to the species
-    # selected.
-    observe(
+    ns <- shiny::NS("events")
+    mapServer(
+        "events", 
+        reactive(eventsData()), 
+        reactive(colorScheme()), 
+        reactive(clustering())
+        )
+    
+    # Returns the set of points which are within the user's map bounds
+    observationsInBoundsData <- reactive(
     {
-        map_data <- eventsData()
+        timeline_data <- eventsData()
+        bounds <- input[[ns("map_bounds")]]
         
-        if (map_data %>% is_empty())
-            return(FALSE)
+        if (is.null(bounds) || timeline_data %>% is_empty())
+            return(timeline_data[FALSE, ])
 
-        lat_long_popups <- paste("<b>Place</b>:", map_data$coord)
-        datetimes_popups <- paste("<br><strong>Time:</strong>",
-                                  map_data$date,
-                                  map_data$time)
-
-        map_data %<>%
-            dplyr::mutate(., popup = paste(lat_long_popups, datetimes_popups))
-
-        pal <- colorFactor(palette = input$colors, domain = input$species,
-                           levels = 1)
+        lat_rng <- range(bounds$north, bounds$south)
+        long_rng <- range(bounds$east, bounds$west)
         
-        leafletProxy("map", data = map_data) %>%
-            clearMarkers() %>%
-            clearMarkerClusters() %>%
-            addCircleMarkers(
-                radius = ~1 / log(length(lat), 1000000), # radius is reversibly proportional to the number of events 
-                clusterOptions = clustering(),
-                stroke = FALSE,
-                fillColor = colorScheme(), 
-                fillOpacity = 0.6,
-                popup = map_data$popup)
+        out <- subset(
+            timeline_data, lat >= lat_rng[1] & lat <= lat_rng[2] & 
+                long >= long_rng[1] & long <= long_rng[2])
+        
+        return(out)
     })
     
-    # Downloader.      
+    # Responsible for drawing the timeline dynamically based on the map's bounds
+    timelineServer(
+        "events_timeline", reactive(observationsInBoundsData()), reactive(colorScheme()))
+    
+
+    # Downloader.
     output$download <- downloadHandler(
-        filename = function() 
+        filename = function()
         {
             return("events_data.csv")
         },
-        content = function(file) 
+        content = function(file)
         {
-            if (eventsData() %>% is_empty()) 
+            if (eventsData() %>% is_empty())
             {
                 data <- tibble(lat = "", long = "", date = "", time = "")
             }
-            else 
+            else
             {
                 data <- eventsData()[, c("lat", "long", "date", "time")]
-                data %<>% dplyr::mutate(., input$species) 
+                data %<>% dplyr::mutate(., input$species)
             }
 
             write.csv(data, file, row.names = FALSE)

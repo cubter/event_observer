@@ -1,20 +1,24 @@
 library(shiny)
 library(leaflet)
+library(rlang)
 library(RColorBrewer)
-library(timevis)
+library(purrr)
 library(magrittr)
 library(plotly)
 library(tibble)
+library(shinyWidgets)
+library(dplyr)
 
 
 # Define UI for application that draws a histogram
 ui <- bootstrapPage(
     tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
     
-    leafletOutput("map", width="100%", height="100%"),
+    # Handles all the map-related stuff being a single point of access. 
+    mapUI("events"),
     
     absolutePanel(
-        id = "controls", 
+        id = "species_observer", 
         class = "panel panel-default", 
         fixed = TRUE, 
         draggable = TRUE, 
@@ -66,10 +70,10 @@ ui <- bootstrapPage(
     conditionalPanel(
         condition = 'input.species == ""',
         absolutePanel(
-            id = "statistics", 
-            class = "panel panel-default", 
+            id = "statistics",
+            class = "panel panel-default",
             fixed = TRUE,
-            draggable = TRUE, 
+            draggable = TRUE,
             top = 60,
             left = 20,
             right = "auto",
@@ -77,35 +81,15 @@ ui <- bootstrapPage(
             width = 350,
             height = "auto",
             style = "opacity: 0.75; padding: 0 10px 20px 20px",
-            
+
             h3("Statistics", align = "right"),
-            h3(textOutput("total_species"), align = "right"),
-            h4(textOutput("total_records_count_reactive"), align = "right"),
-            h5(textOutput("date_reactive"), align = "right"),
-            
-            plotlyOutput("top_years", height = "320px", width = "auto"),
-            plotlyOutput("last_ten_years", height = "220px", width = "auto"),
+            statisticsUI("statistics")
         )
     ),
     
     conditionalPanel(
         condition = 'input.species != ""',
-        absolutePanel(
-            id = "timeline", 
-            class = "panel panel-default", 
-            fixed = TRUE,
-            draggable = TRUE,
-            top = "auto",
-            left = 70,
-            right = 70,
-            bottom = 20,
-            width = "auto",
-            height = 180,
-            style = "opacity: 0.75; padding: 0 5px 5px 5px",
-            
-            h4("Species timeline", align = "center", top = "10px"),
-            
-            plotlyOutput("timeline", height = "140px", width = "100%")
-            )
+        # Handles all the timeline-related stuff being a single point of access.
+        timelineUI("events_timeline")
     )
 )
