@@ -143,9 +143,6 @@ increment_redis_num_events("num_events", nrow(occurr))
 years_distribution <- format(as.Date(occurr$eventDate),"%Y") %>% 
     table()
 
-# cmds <- map2(years_distribution, names(years_distribution),
-             # ~ set_years_distribution("yd0", .x, .y))
-
 for (i in seq_along(years_distribution)) {
     r$ZINCRBY("yt5", years_distribution[i], names(years_distribution)[i])
     cat(i, "\n")
@@ -153,8 +150,6 @@ for (i in seq_along(years_distribution)) {
 
 walk2(years_distribution, names(years_distribution),
       ~ r$ZINCRBY("year_count", .x, .y))
-
-# r$pipeline(.commands = cmds)
 ```
 
 

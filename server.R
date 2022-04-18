@@ -9,30 +9,35 @@ library(tibble)
 library(shinyWidgets)
 library(dplyr)
 
+# Initialising connection to Redis.
 r <- redux::hiredis()
 
-keys <- r$HKEYS("vernacular_name:scientific_name")
-vals <- r$HVALS("vernacular_name:scientific_name")
-species <- c(keys, vals) %>% unlist()
+# Obtaining vernacular & scientific names from the hash table.
+vernac_names <- r$HKEYS("vernacular_name:scientific_name")
+sci_names <- r$HVALS("vernacular_name:scientific_name")
+species <- c(vernac_names, sci_names) %>% unlist()
 
-# It seems redux just doesn't know yet that ZREVRANGE is deprecated.
-top_years_count <- r$ZREVRANGE("year_count", 0, 9, "WITHSCORES")
-year_indexes <- map2_lgl(top_years_count, seq_along(top_years_count),
-                         ~ (.y %% 2 == 1))
-top_years <- tibble(year = top_years_count[year_indexes] %>% as.integer(),
-                    score = top_years_count[!year_indexes] %>% as.integer())
+# Counting the top years, by events.
+# It seems Redux just doesn't know yet that ZREVRANGE is deprecated.
+year_count <- r$ZREVRANGE("year_count", 0, -1, "WITHSCORES")
+top_year_count <- year_count[1:10]
+top_year_indexes <- map2_lgl(top_year_count, seq_along(top_year_count), ~ (.y %% 2 == 1))
+
+top_years <- tibble(year = year_count[year_indexes] %>% as.integer(),
+                    score = year_count[!year_indexes] %>% as.integer())
 top_years$year_share = (top_years$score/sum(top_years$score) * 100) %>% 
     round(., 1)
 
-all_years_count <- r$ZREVRANGE("year_count", 0, -1, "WITHSCORES")
-year_indexes <- map2_lgl(all_years_count, seq_along(all_years_count),
-                         ~ (.y %% 2 == 1))
-all_years <- tibble(year = all_years_count[year_indexes] %>% as.integer(),
-                    score = all_years_count[!year_indexes] %>% as.integer())
+# Counting the last 10 years, by events.
+all_year_indexes <- map2_lgl(year_count, seq_along(year_count),
+                             ~ (.y %% 2 == 1))
+all_years <- tibble(year = year_count[year_indexes] %>% as.integer(),
+                    score = year_count[!year_indexes] %>% as.integer())
 last_ten_years <- filter(all_years, year %in% (year %>% sort(decreasing = T))[1:10])
 
-num_events <- r$HGET("num_events", "value")
-last_update_date <- r$LRANGE("update_date", 0, -1)
+
+num_events <- r$HGET("num_events", "value")         # total num of events
+last_update_date <- r$LRANGE("update_date", 0, -1)  # last update's date
 
 server <- function(input, output, session) 
 {
@@ -57,7 +62,7 @@ server <- function(input, output, session)
     )    
     
     statisticsServer(
-        "statistics", top_years, last_ten_years, length(vals), num_events, 
+        "statistics", top_years, last_ten_years, length(sci_names), num_events, 
         last_update_date)
     
     # Processes user's input for species.
