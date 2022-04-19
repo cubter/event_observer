@@ -1,53 +1,56 @@
----
-title: "redis_files_constructor.Rmd"
-output: html_document
-date: '2022-04-14'
----
-
-```{r setup, include=FALSE}
-library(magrittr)
 library(purrr)
-library(lobstr)
+library(magrittr)
 library(redux)
-```
 
+args = commandArgs(trailingOnly=TRUE)
 
-```{r}
-occurr = read.csv2("Data/occurence.csv", sep = ",", stringsAsFactors = F, 
-                    check.names = T,
-                   nrows = 300000)
-
-occurr = occurr[c("scientificName", "vernacularName", "latitudeDecimal", "longitudeDecimal", "eventDate", "eventTime")]
-```
-
-
-Constructs a reverted index, containing key-value pairs, where key is a species' 
-scientific name, and value is a list containing vernacular name, latitude, longitude, 
-date & time of the event.
-Note: perhaps I should have parallelized the loop (using `future` pkg e.g.), but I
-suppose I have a data dependency here.
-```{r}
-#TODO: check if sci name size exceeds 10000 bytes
-construct_index <- function(scientific_name, vernacular_name, lat, long, event_date, event_time, 
-                            row_num) 
+if (length(args) != 1) 
 {
-    if (rlang::env_has(e1, scientific_name)) 
+    stop("File containing occurrences must be supplied as the first arg.\n", call. = FALSE)
+} 
+
+cat("Reading file.\n")
+
+# The csv file must contain the column names.
+occurr = read.csv2(
+    args[1], 
+    sep = ",", 
+    stringsAsFactors = F, 
+    check.names = T)
+
+# I'm not conducting file structure checks here because I assume, the file provided
+# is correct. But, of course, for a production-ready app tests would be needed. 
+occurr = occurr[, c("scientificName", "vernacularName", "latitudeDecimal", "longitudeDecimal", "eventDate", "eventTime")]
+
+cat("\nConstructing indexes. This may take a while.\n")
+# Constructs an index, containing key-value pairs, where key is a species' 
+# scientific name, and value is a list containing vernacular name, latitude, longitude, 
+# date & time of the event. Drawback: usage of global var (index_env).
+# Note: perhaps I should have parallelized the loop (using `future` pkg e.g.), but I
+# suppose I have a data dependency here.
+construct_index <- function(
+    scientific_name, vernacular_name, lat, long, event_date, event_time, row_num) 
+{
+    if (scientific_name == "") 
+        return()
+    
+    if (rlang::env_has(index_env, scientific_name)) 
     {
-        e1[[scientific_name]][[2]] %<>% append(row_num) # row number (index itself)
-        e1[[scientific_name]][[3]] %<>% append(lat)  # latitude      
-        e1[[scientific_name]][[4]] %<>% append(long)  # longitude
-        e1[[scientific_name]][[5]] %<>% append(event_date)  # date
-        e1[[scientific_name]][[6]] %<>% append(event_time)  # time
+        index_env[[scientific_name]][[2]] %<>% append(row_num) 
+        index_env[[scientific_name]][[3]] %<>% append(lat)      
+        index_env[[scientific_name]][[4]] %<>% append(long)
+        index_env[[scientific_name]][[5]] %<>% append(event_date)
+        index_env[[scientific_name]][[6]] %<>% append(event_time)
         
         return()
     }
     
-    e1[[scientific_name]] <- list(vernacular_name, row_num, lat, long, event_date, event_time)
-    names(e1[[scientific_name]]) <- c(
+    index_env[[scientific_name]] <- list(vernacular_name, row_num, lat, long, event_date, event_time)
+    names(index_env[[scientific_name]]) <- c(
         "vernacular_name", "row_num", "lat", "long", "event_date", "event_time")
 }
 
-e1 <- rlang::env()
+index_env <- rlang::env()
 
 purrr::pwalk(list(occurr$scientificName, 
                   occurr$vernacularName, 
@@ -58,11 +61,9 @@ purrr::pwalk(list(occurr$scientificName,
                   seq_along(occurr$scientificName)
                   ),
              ~ construct_index(..1, ..2, ..3, ..4, ..5, ..6, ..7))
-```
 
+# Functions that return appropriate Redis' functions.
 
-Functions that construct appropriate Redis' functions.
-```{r}
 # "Coordinates" is a list, contaning pairs of latitude & longitude.
 set_redis_coordinates <- function(env, env_key, lat, long)
 {
@@ -111,26 +112,22 @@ set_years_distribution <- function(sorted_set_name, score, member)
 {
     return(r$ZINCRBY(sorted_set_name, score, member))
 }
-```
 
-Setting connection to Redis.
-```{r echo=F, include=F}
+# Setting connection to Redis.
 r <- redux::hiredis()
 redis <- redux::redis
-#TODEL
-r$FLUSHDB()
-```
 
-Pipelining data to Redis.
-```{r echo=FALSE, include=FALSE}
+cat("\nUploading data to Redis. This may take a while.\n")
+
+# Pipelining data to Redis.
 # Pipelining events' coordinates.
 cmds <- map(occurr$scientificName, 
-            ~ set_redis_coordinates(e1, .x, "lat", "long"))
+            ~ set_redis_coordinates(index_env, .x, "lat", "long"))
 r$pipeline(.commands = cmds)
 
 # Pipelining events' dates & times.
 cmds <- map(occurr$scientificName,
-            ~ set_redis_date_time(e1, .x, "event_date", "event_time"))
+            ~ set_redis_date_time(index_env, .x, "event_date", "event_time"))
 r$pipeline(.commands = cmds)
  
 # Pipelining species' name pairs.
@@ -143,13 +140,8 @@ increment_redis_num_events("num_events", nrow(occurr))
 years_distribution <- format(as.Date(occurr$eventDate),"%Y") %>% 
     table()
 
-for (i in seq_along(years_distribution)) {
-    r$ZINCRBY("yt5", years_distribution[i], names(years_distribution)[i])
-    cat(i, "\n")
-}
-
 walk2(years_distribution, names(years_distribution),
       ~ r$ZINCRBY("year_count", .x, .y))
-```
 
+cat("Uploading finished\n")
 
