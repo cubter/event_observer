@@ -60,7 +60,7 @@ I tried to optimise performance everywhere I could, and used the whole dataset i
 
 Besides, I shrinked the initial file, having only the required columns left. This helped reduce the size by as much as 18 Gb. As a result, I obtained a rel. not large dataset, which fitted well into Redis database, assuming the server has at least 2 GB RAM. Had I had to deal with the whole initial file, I'd have gone a more typical SQL way & used Redis for caching the most requested species.
 
-I've written `C++` code to associate the events' coordinates, dates & times  with the corresponding names. Although R's envrironments are fast, STL's `unordered_map`s are faster, and this helped improve the performance for species with hundreds of thousands of events. Despiute this, sourcing a C++ file does take time initially during the app's launch.
+I've written `C++` code to assign weights to timeline's points so that they've different y-coordinates. Although R's envrironments are fast, STL's `unordered_map`s are faster, and this helped improve the performance for species with hundreds of thousands of events. Despite this, sourcing a C++ file takes time initially during the app's launch.
 
 As regards plots, because there're species with hundreds of thousands of events, I render them with `webGL`. The drawback is that it requires more resources from the user's OS.  
 
