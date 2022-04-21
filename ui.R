@@ -47,7 +47,7 @@ ui <- bootstrapPage(
         class = "panel panel-default", 
         fixed = TRUE, 
         draggable = TRUE, 
-        top = 60, 
+        top = 0, 
         left = "auto", 
         right = 20, 
         bottom = "auto",
@@ -93,29 +93,56 @@ ui <- bootstrapPage(
         downloadButton("download", "Download selected species' events")
     ),
     
-    conditionalPanel(
-        condition = 'input.species == ""',
+    
         absolutePanel(
-            id = "statistics",
+            id = "stat_panel",
             class = "panel panel-default",
             fixed = TRUE,
             draggable = TRUE,
-            top = 10,
+            top = 0,
             left = 20,
             right = "auto",
-            bottom = "auto",
-            width = 350,
-            height = "auto",
-            style = "opacity: 0.75; padding: 0 20px 20px 20px",
-
-            h3("Statistics", align = "right"),
-            statisticsUI("statistics")
+            height = 200,
+            width = 430,
+            style = "opacity: 0.75; padding: 0px 80px 20px 20px",
+            
+            conditionalPanel(
+                condition = 'input.species == ""',
+                h3("Statistics", align = "right"),
+                statisticsUI("statistics")
+            )
+        ),
+    
+    conditionalPanel(
+        condition = 'input.species != ""',
+        absolutePanel(
+            id = "hide_timeline_panel",
+            class = "panel panel-default",
+            fixed = TRUE,
+            draggable = TRUE,
+            top = "auto",
+            left = 40,
+            right = 40,
+            bottom = 200,
+            width = "auto",
+            height = 50,
+            style = "opacity: 0.75; padding: 0 10px 5px 5px",
+            prettyToggle(
+                inputId = "hide_timeline",
+                label_on = HTML("<b>Show timeline!</b>"), 
+                icon_on = icon("check"),
+                fill = TRUE,
+                shape = "curve",
+                status_on = "info",
+                status_off = "danger", 
+                label_off = HTML("<b>Hide timeline!</b>"),
+                icon_off = icon("times"),
+                animation = "pulse")
         )
     ),
     
     conditionalPanel(
-        condition = 'input.species != ""',
-       
+        condition = 'input.species != "" && input.hide_timeline != true',
         # Handles all the timeline-related stuff being a single point of access.
         timelineUI("events_timeline")
     )

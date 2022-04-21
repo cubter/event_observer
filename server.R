@@ -72,9 +72,13 @@ server <- function(input, output, session)
     }
     )    
     
+    test <- reactive({
+        out = input$plot_selector
+        out})
+    
     statisticsServer(
         "statistics", top_years, last_ten_years, length(sci_names), num_events, 
-        last_update_date)
+        last_update_date, reactive(test()))
     
     # Processes user's input for species.
     filteredData <- reactive(

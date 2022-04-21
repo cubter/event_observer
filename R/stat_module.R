@@ -3,11 +3,11 @@ statisticsUI <- function(id)
     ns <- NS(id)
     
     tagList(
-        h3(textOutput(ns("total_species")), align = "right"),
-        h4(textOutput(ns("total_events")), align = "right"),
-        h5(textOutput(ns("last_update_date")), align = "right"),
-        plotlyOutput(ns("top_years"), height = "320px", width = "auto"),
-        plotlyOutput(ns("last_ten_years"), height = "220px", width = "auto")
+        h4(textOutput(ns("total_species")), align = "right"),
+        h5(textOutput(ns("total_events")), align = "right"),
+        h6(textOutput(ns("last_update_date")), align = "right"),
+        plotlyOutput(ns("top_years"), height = "280px", width = "auto"),
+        plotlyOutput(ns("last_ten_years"), height = "280px", width = "auto")
     )
 }
 
@@ -17,7 +17,8 @@ statisticsServer <- function(
     last_ten_years_data, 
     num_species, 
     num_events, 
-    last_update_date)
+    last_update_date,
+    plotOption)
 {
     moduleServer(
         id,
@@ -136,7 +137,7 @@ statisticsServer <- function(
                 ) 
             
             output$top_years <- renderPlotly(top_years_plot)
-            output$last_ten_years <- renderPlotly(ten_years_plot)
-        }
-    )
+            output$last_ten_years <- renderPlotly(ten_years_plot) 
+        
+    })
 }
