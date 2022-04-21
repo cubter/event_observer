@@ -35,7 +35,7 @@ ui <- bootstrapPage(
         height = "auto",
         style = "opacity: 0.75; padding: 0 20px 20px 20px;transition: opacity 500ms 1s;",
         
-        h2("Species observer"),
+        h3("Species observer"),
         
         selectizeInput(
             "species", 

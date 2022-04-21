@@ -166,6 +166,8 @@ server <- function(input, output, session)
         start <- as.Date(user_dates[1])
         end <- as.Date(user_dates[2])
         
+        # This is a bottleneck right now: it takes ~ 7s to convert 500K strings
+        # to dates. I'm in process of finding a workaround for this.
         out %<>% filter(
             (events_dates <= end | is.na(events_dates)) &
                 (events_dates >= start | is.na(events_dates)))
