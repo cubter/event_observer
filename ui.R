@@ -8,14 +8,19 @@ library(plotly)
 library(tibble)
 library(shinyWidgets)
 library(dplyr)
-
+library(redux)
+library(stringr)
+library(Rcpp)
+library(bslib)
 
 # Define UI for application that draws a histogram
 ui <- bootstrapPage(
     tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
     
+    theme = bs_theme(version = 4, bootswatch = "flatly"),
+    
     # Handles all the map-related stuff being a single point of access. 
-    mapUI("events"),
+    mapUI("map"),
     
     absolutePanel(
         id = "species_observer", 
@@ -57,11 +62,14 @@ ui <- bootstrapPage(
             "Color Scheme",
             rownames(subset(brewer.pal.info, category %in% c("seq")))),
         
-        h5(HTML("<b>Cluster nearby events on the map?</b>")),      
+        h6(HTML("<b>Cluster nearby events on the map?</b><br><br>Warning: for large number of events switching it off may make the map render for a very long time.")),
           
         switchInput(
             inputId = "clustering",
-            size = "mini"
+            size = "mini",
+            # By def., clustering is on, since there are species with hundreds
+            # of thousands of events.
+            value = TRUE
         ),  
         
         downloadButton("download", "Download selected species' events")

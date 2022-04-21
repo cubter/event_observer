@@ -9,14 +9,14 @@ timelineUI <- function(id)
         fixed = TRUE,
         draggable = TRUE,
         top = "auto",
-        left = 70,
-        right = 70,
+        left = 40,
+        right = 40,
         bottom = 20,
         width = "auto",
-        height = 180,
-        style = "opacity: 0.75; padding: 0 5px 5px 5px",
+        height = 200,
+        style = "opacity: 0.75; padding: 0 10px 5px 5px",
         
-        plotlyOutput(ns("timeline"), height = "160px", width = "100%"),
+        plotlyOutput(ns("timeline"), height = "180px", width = "100%"),
         
         h4("Species timeline", align = "center", top = "10px"),
     )
@@ -30,6 +30,10 @@ timelineServer <- function(id, observationsInBoundsData, color)
         {
             output$timeline <- renderPlotly(
             {
+                # progress <- shiny::Progress$new()
+                # on.exit(progress$close())
+                # progress$set(message = "Making plot", value = 0)
+                
                 timeline_data <- observationsInBoundsData()
                 
                 # TODO: proper handling
@@ -45,9 +49,12 @@ timelineServer <- function(id, observationsInBoundsData, color)
                     color = I(color()),
                     # popup text
                     hovertemplate = ~paste(
-                        "<b>Place</b>:", coord, "<br><b>Time</b>:",
-                        time, "<extra></extra>")
-                    )
+                        "<b>Place</b>:", coord, 
+                        "<br><b>Date</b>:", date,
+                        "<br><b>Time</b>:", time, 
+                        "<extra></extra>")
+                    ) %>% 
+                    toWebGL()
                 # Styling the plot.
                 time_plot %<>% config(., scrollZoom = TRUE) %>%
                     layout(
@@ -70,7 +77,12 @@ timelineServer <- function(id, observationsInBoundsData, color)
                             )
                     )
                 
-                time_plot
+                # WebGL allows to significantly improve the performance of 
+                # plots' rasterisation.
+                # time_plot %<>% toWebGL()
+                
+                # progress$inc(100)
+                return(time_plot)
             })
         }
     )

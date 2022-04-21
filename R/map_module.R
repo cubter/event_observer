@@ -11,15 +11,14 @@ mapServer <- function(id, eventsData, markersColor, clusteringOptions = NULL)
         id,
         function(input, output, session) 
         {
-            # Renders a naked map.
+            # Renders naked map.
             output$map <- renderLeaflet(
             {
                 # Static maps without markers, hence leaflet() instead of leafletProxy().
-                leaflet() %>%
-                    addTiles() %>%
-                    setView(lng = 0, lat = 25, zoom = 3)
+                leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+                    addTiles()
             })
-            # 
+
             # Responsible for drawing markers on the map according to the species
             # selected.
             observe(
@@ -48,7 +47,9 @@ mapServer <- function(id, eventsData, markersColor, clusteringOptions = NULL)
                         stroke = FALSE,
                         fillColor = markersColor(),
                         fillOpacity = 0.6,
-                        popup = map_data$popup)
+                        popup = map_data$popup) %>%
+                    fitBounds(~min(long), ~min(lat), ~max(long), ~max(lat),
+                              options = list(maxZoom = 5))
             })
         }
     )

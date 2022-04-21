@@ -8,6 +8,10 @@ library(plotly)
 library(tibble)
 library(shinyWidgets)
 library(dplyr)
+library(redux)
+library(stringr)
+library(Rcpp)
+library(bslib)
 
 # Initialising connection to Redis.
 r <- redux::hiredis()
@@ -20,24 +24,26 @@ species <- c(vernac_names, sci_names) %>% unlist()
 # Counting the top years, by events.
 # It seems Redux just doesn't know yet that ZREVRANGE is deprecated.
 year_count <- r$ZREVRANGE("year_count", 0, -1, "WITHSCORES")
-top_year_count <- year_count[1:10]
+top_year_count <- year_count[1:20]
 top_year_indexes <- map2_lgl(top_year_count, seq_along(top_year_count), ~ (.y %% 2 == 1))
 
-top_years <- tibble(year = year_count[year_indexes] %>% as.integer(),
-                    score = year_count[!year_indexes] %>% as.integer())
+top_years <- tibble(year = top_year_count[top_year_indexes] %>% unlist() %>% as.integer(),
+                    score = top_year_count[!top_year_indexes] %>% unlist() %>% as.integer())
 top_years$year_share = (top_years$score/sum(top_years$score) * 100) %>% 
     round(., 1)
 
 # Counting the last 10 years, by events.
-all_year_indexes <- map2_lgl(year_count, seq_along(year_count),
-                             ~ (.y %% 2 == 1))
-all_years <- tibble(year = year_count[year_indexes] %>% as.integer(),
-                    score = year_count[!year_indexes] %>% as.integer())
+all_year_indexes <- map2_lgl(year_count, seq_along(year_count), ~ (.y %% 2 == 1))
+all_years <- tibble(year = year_count[all_year_indexes] %>% unlist() %>% as.integer(),
+                    score = year_count[!all_year_indexes] %>% unlist() %>% as.integer())
+# Default method (radix sort) is OK, as the num of years is not big
 last_ten_years <- filter(all_years, year %in% (year %>% sort(decreasing = T))[1:10])
 
-
 num_events <- r$HGET("num_events", "value")         # total num of events
-last_update_date <- r$LRANGE("update_date", 0, -1)  # last update's date
+last_update_date <- r$HGET("update_date", "value")  # last update's date
+
+# Sourcing Rcpp file
+sourceCpp("weights_assigner.cpp")
 
 server <- function(input, output, session) 
 {
@@ -45,9 +51,11 @@ server <- function(input, output, session)
     # and we have pretty many species out there. 
     # See: https://shiny.rstudio.com/articles/selectize.html
     updateSelectizeInput(
-        session, 'species', 
+        session, 
+        'species', 
         choices = species, 
-        server = TRUE
+        server = TRUE,
+        selected = "Parus minor"
     )
 
     # Returns color acc. to the user's selection.
@@ -109,6 +117,22 @@ server <- function(input, output, session)
         return(list(tibble::tibble(lat, long), datetime))
     })
     
+    observe(
+    {
+        if (filteredData() %>% is_empty() %>% not())
+        {
+            if (nrow(filteredData()[[1]]) > 30000)
+            {
+                # Save the ID for removal later
+                showModal(modalDialog(
+                    title = "Large dataset",
+                    "Wow! You've chosen species with many observations. It will take time for me to depict them",
+                    easyClose = TRUE
+                ))
+            }
+        }
+    })
+    
     # Constructs a tibble with events data, assigns weights to different events,
     # which are used later for the timeline. Returns empty tibble if no data
     # have been found in the DB or if an empty species input is provided.
@@ -116,7 +140,13 @@ server <- function(input, output, session)
     {
         if (filteredData() %>% is_empty())
             return(tibble(NULL))
-
+        
+        # Create a Progress object
+        progress <- shiny::Progress$new()
+        # Make sure it closes when we exit this reactive, even if there's an error
+        on.exit(progress$close())
+        progress$set(message = "Calculating data", value = 0)
+        
         f_data <- filteredData()
         space_data <- f_data[[1]]
         dt_data <- f_data[[2]]
@@ -127,9 +157,7 @@ server <- function(input, output, session)
             lat = space_data$lat,
             long = space_data$long,
             coord = paste(space_data$lat, space_data$long, sep = ", "),
-            # 0.25 here is an arbitrary number, which is close to log(1.2, 2).
-            # It helps to scale down coordinate differences.
-            weight = 0.25
+            weight = 0.1  # arbitrary number
         )
 
         # Filtering the dates acc. to user's input
@@ -137,34 +165,25 @@ server <- function(input, output, session)
         events_dates <- as.Date(out$date)
         start <- as.Date(user_dates[1])
         end <- as.Date(user_dates[2])
-
+        
         out %<>% filter(
             (events_dates <= end | is.na(events_dates)) &
                 (events_dates >= start | is.na(events_dates)))
-
-        # Assuming the number of observations for species is not huge  (<= 500) on avg.,
-        # I'm linearly finding (a more optimal solution would include e.g. named lists,
-        # but I don't see the need for them here.) each row corresponding to the date
-        # provided and assign it a weight  Then, cumulative sum for each date
-        # is calculated. This will let different events to have different y coordinates
-        # in the plot (i.e. to e drawn separately).
-        calc_weight <- function(date)
-        {
-            indexes <- (out$date == date) %>% which()
-            out[indexes, "weight"] <<- cumsum(out[indexes, "weight"])
-        }
-        unique_dates <- out$date %>% unique()
-        walk(unique_dates, calc_weight)
+        
+        progress$set(50)
+        
+        row_weights <- assign_weights(out$date, seq_along(out$date))
+        out$weight[row_weights$rows] <- row_weights$weights
 
         # Setting empty time to "None"
         out$time[map_lgl(out$time, ~ .x == "")] <- "None"
-
+        
         return(out)
     }
     )
     
-    # Returns leaflet::markerClusterOptions(), if clustering is enabled to be used for
-    # clustering events on the map.
+    # Returns leaflet::markerClusterOptions(), if clustering is enabled, which are 
+    # to be used for clustering events on the map.
     clustering <- reactive(
     {
         if (!input$clustering)
@@ -174,19 +193,25 @@ server <- function(input, output, session)
     }
     )
     
-    ns <- shiny::NS("events")
     mapServer(
-        "events", 
+        "map", 
         reactive(eventsData()), 
         reactive(colorScheme()), 
         reactive(clustering())
         )
     
-    # Returns the set of points which are within the user's map bounds
+    # Returns the set of points which are within the user's map bounds.
     observationsInBoundsData <- reactive(
     {
+        # Create a Progress object
+        progress <- shiny::Progress$new()
+        # Make sure it closes when we exit this reactive, even if there's an error
+        on.exit(progress$close())
+        progress$set(message = "Drawing timeline", value = 50)
+        
         timeline_data <- eventsData()
-        bounds <- input[[ns("map_bounds")]]
+        # Making this work appeared to be very non-trivial for me.
+        bounds <- input[[NS("map", "map_bounds")]]
         
         if (is.null(bounds) || timeline_data %>% is_empty())
             return(timeline_data[FALSE, ])
@@ -198,6 +223,8 @@ server <- function(input, output, session)
             timeline_data, lat >= lat_rng[1] & lat <= lat_rng[2] & 
                 long >= long_rng[1] & long <= long_rng[2])
         
+        progress$set(value = 100)
+        
         return(out)
     })
     
@@ -205,7 +232,6 @@ server <- function(input, output, session)
     timelineServer(
         "events_timeline", reactive(observationsInBoundsData()), reactive(colorScheme()))
     
-
     # Downloader.
     output$download <- downloadHandler(
         filename = function()

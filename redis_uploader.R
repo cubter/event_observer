@@ -9,14 +9,15 @@ if (length(args) != 1)
     stop("File containing occurrences must be supplied as the first arg.\n", call. = FALSE)
 } 
 
-cat("Reading file.\n")
+cat("Reading file: ", args[1], "\n")
 
 # The csv file must contain the column names.
 occurr = read.csv2(
     args[1], 
     sep = ",", 
     stringsAsFactors = F, 
-    check.names = T)
+    check.names = T,
+    nrows = 20000)
 
 # I'm not conducting file structure checks here because I assume, the file provided
 # is correct. But, of course, for a production-ready app tests would be needed. 
@@ -142,6 +143,9 @@ years_distribution <- format(as.Date(occurr$eventDate),"%Y") %>%
 
 walk2(years_distribution, names(years_distribution),
       ~ r$ZINCRBY("year_count", .x, .y))
+
+# Setting today as the date of the last DB update.
+r$HSET("update_date", "value", Sys.Date() %>% as.character())
 
 cat("Uploading finished\n")
 
