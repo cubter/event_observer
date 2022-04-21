@@ -20,7 +20,26 @@ ui <- bootstrapPage(
     
     theme = bs_theme(version = 4, bootswatch = "flatly"),
     
-    # Handles all the map-related stuff being a single point of access. 
+    # Depicts progress bar while the app is loading
+    absolutePanel(
+        id = "progress_panel",
+        fixed = TRUE,
+        draggable = FALSE,
+        top = 0,
+        height = 0,
+        bottom = "auto",
+        left = 0,
+        right = 0,
+        style = "opacity: 0.9;transition: opacity 500ms 1s; color: #FFFFFF",
+        progressBar(
+            id = "pb0",
+            value = 30,
+            size = "xs",
+            display_pct = TRUE,
+            striped = TRUE)
+    ),
+    
+    # Handles all the map-related stuff being a single point of access.
     mapUI("map"),
     
     absolutePanel(
@@ -96,6 +115,7 @@ ui <- bootstrapPage(
     
     conditionalPanel(
         condition = 'input.species != ""',
+       
         # Handles all the timeline-related stuff being a single point of access.
         timelineUI("events_timeline")
     )

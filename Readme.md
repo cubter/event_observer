@@ -85,6 +85,8 @@ Not used. I found a built-in way (which doesn't require JS knowledge) to display
 ## Last: features I'd love to add, had I more time
 - *Selection option for locations*: user could choose a location from a human-readable list (e.g. Germany, Poland, UK, Europe, World)
 	- difficulty for me: easy;
+- *Coloring countries*: countries would be colored acc. to the number of events: the more events, the more intensive the color is;
+	- difficulty for me: easy;
 - *Dark theme switcher*
 	- difficulty for me: rel. easy, but also requires dark version of the map;
 - *Flashing the clicked map's point on the timeline* 

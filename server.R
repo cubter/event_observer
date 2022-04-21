@@ -48,6 +48,8 @@ sourceCpp("weights_assigner.cpp")
 
 server <- function(input, output, session) 
 {
+    updateProgressBar(session = session, id = "pb0", value = 50)
+    
     # Server-side selectize is a performance improvement, since it uses R for the search,
     # and we have pretty many species out there. 
     # See: https://shiny.rstudio.com/articles/selectize.html
@@ -185,6 +187,8 @@ server <- function(input, output, session)
     }
     )
     
+    updateProgressBar(session = session, id = "pb0", value = 65)
+    
     # Returns leaflet::markerClusterOptions(), if clustering is enabled, which are 
     # to be used for clustering events on the map.
     clustering <- reactive(
@@ -203,6 +207,8 @@ server <- function(input, output, session)
         reactive(clustering())
         )
     
+    updateProgressBar(session = session, id = "pb0", value = 80)
+
     # Returns the set of points which are within the user's map bounds.
     observationsInBoundsData <- reactive(
     {
@@ -226,6 +232,8 @@ server <- function(input, output, session)
     # Responsible for drawing the timeline dynamically based on the map's bounds
     timelineServer(
         "events_timeline", reactive(observationsInBoundsData()), reactive(colorScheme()))
+    
+    updateProgressBar(session = session, id = "pb0", value = 100)
     
     # Downloader.
     output$download <- downloadHandler(

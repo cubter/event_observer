@@ -18,7 +18,7 @@ timelineUI <- function(id)
         
         plotlyOutput(ns("timeline"), height = "180px", width = "100%"),
         
-        h5("Species timeline", align = "center", top = "10px"),
+        h5("Species timeline", align = "center", top = "10px")
     )
 }
 

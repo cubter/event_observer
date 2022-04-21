@@ -1,8 +1,9 @@
 mapUI <- function(id)
 {
     ns <- NS(id)
-   
+    
     leafletOutput(ns("map"), width="100%", height="100%")
+
 }
 
 mapServer <- function(id, eventsData, markersColor, clusteringOptions = NULL)
