@@ -127,7 +127,7 @@ server <- function(input, output, session)
                 # Save the ID for removal later
                 showModal(modalDialog(
                     title = "Large dataset",
-                    "Wow! You've chosen species with many observations. It will take time for me to depict them",
+                    "Wow! You've chosen species with many observations. It will take time for me to depict them.",
                     easyClose = TRUE
                 ))
             }
@@ -206,12 +206,6 @@ server <- function(input, output, session)
     # Returns the set of points which are within the user's map bounds.
     observationsInBoundsData <- reactive(
     {
-        # Create a Progress object
-        progress <- shiny::Progress$new()
-        # Make sure it closes when we exit this reactive, even if there's an error
-        on.exit(progress$close())
-        progress$set(message = "Drawing timeline", value = 50)
-        
         timeline_data <- eventsData()
         # Making this work appeared to be very non-trivial for me.
         bounds <- input[[NS("map", "map_bounds")]]
@@ -225,8 +219,6 @@ server <- function(input, output, session)
         out <- subset(
             timeline_data, lat >= lat_rng[1] & lat <= lat_rng[2] & 
                 long >= long_rng[1] & long <= long_rng[2])
-        
-        progress$set(value = 100)
         
         return(out)
     })

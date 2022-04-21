@@ -9,7 +9,6 @@ statisticsUI <- function(id)
         plotlyOutput(ns("top_years"), height = "320px", width = "auto"),
         plotlyOutput(ns("last_ten_years"), height = "220px", width = "auto")
     )
-    # )
 }
 
 statisticsServer <- function(

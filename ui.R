@@ -43,9 +43,7 @@ ui <- bootstrapPage(
              label = "Search species.", 
              choices = NULL, 
              options = list(
-                 placeholder = 'Select species', 
-                 onInitialize = I('function() { this.setValue(""); }')
-                 )
+                 placeholder = 'Select species')
             ),
         
         dateRangeInput(
@@ -83,13 +81,13 @@ ui <- bootstrapPage(
             class = "panel panel-default",
             fixed = TRUE,
             draggable = TRUE,
-            top = 60,
+            top = 10,
             left = 20,
             right = "auto",
             bottom = "auto",
             width = 350,
             height = "auto",
-            style = "opacity: 0.75; padding: 0 10px 20px 20px",
+            style = "opacity: 0.75; padding: 0 20px 20px 20px",
 
             h3("Statistics", align = "right"),
             statisticsUI("statistics")

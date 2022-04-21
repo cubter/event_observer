@@ -40,6 +40,12 @@ timelineServer <- function(id, observationsInBoundsData, color)
                 if (timeline_data %>% is_empty())
                     return()
                 
+                # Create a Progress object
+                progress <- shiny::Progress$new()
+                # Make sure it closes when we exit this reactive, even if there's an error
+                on.exit(progress$close())
+                progress$set(message = "Drawing timeline", value = 10)
+                
                 # Drawing a plot.
                 time_plot <- plot_ly(
                     data = timeline_data, 
@@ -55,6 +61,9 @@ timelineServer <- function(id, observationsInBoundsData, color)
                         "<extra></extra>")
                     ) %>% 
                     toWebGL()
+                
+                progress$inc(40)
+                
                 # Styling the plot.
                 time_plot %<>% config(., scrollZoom = TRUE) %>%
                     layout(
@@ -77,11 +86,7 @@ timelineServer <- function(id, observationsInBoundsData, color)
                             )
                     )
                 
-                # WebGL allows to significantly improve the performance of 
-                # plots' rasterisation.
-                # time_plot %<>% toWebGL()
-                
-                # progress$inc(100)
+                progress$set(value = 100)
                 return(time_plot)
             })
         }
