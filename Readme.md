@@ -40,7 +40,7 @@ The structure is as follows:
 - hash set <vernacularName: scientificName>
 - sorted sets <year: number of observations>
 
-Redis lists are linked lists, so inserting a new element takes O(1) time. This is a desired DS for storing coordinates, dates & times in the sense of insertion optimisation, but this also makes retrieving specific values improssible. So if the user filters dates, I've to apply filtering in R.
+Redis lists are linked lists, so inserting a new element takes O(1) time. This is a desired DS for storing coordinates, dates & times in the sense of insertion optimisation, but this also makes retrieving specific values improssible. So, if the user filters dates, I've to apply filtering in R.
 
 As one may see, if the user selects a vernacular name, we firstly have to extract the corresp. scientific name from the hash. Only then can we obtain the events' data. There's an obvious drawback of this approach: I've to address the DB twice. That essentially means 2x RTTs and 2x read operations. On the flip side is an optimised storage, which was my primary motivation. 
 
@@ -60,13 +60,16 @@ I tried to optimise performance everywhere I could, and used the whole dataset i
 
 Besides, I shrinked the initial file, having only the required columns left. This helped reduce the size by as much as 18 Gb. As a result, I obtained a rel. not large dataset, which fitted well into Redis database, assuming the server has at least 2 GB RAM. Had I had to deal with the whole initial file, I'd have gone a more typical SQL way & used Redis for caching the most requested species.
 
-I've written `C++` code to assign weights to timeline's points so that they've different y-coordinates. Although R's envrironments are fast, STL's `unordered_map`s are faster, and this helped improve the performance for species with hundreds of thousands of events. Despite this, sourcing a C++ file takes time initially during the app's launch.
+I've written `C++` code to assign weights to timeline's points so that they've different y-coordinates. Although R's envrironments are fast, STL's `unordered_map`s are faster, and this helped improve the performance for species with hundreds of thousands of events. 
+> Despite this, sourcing a C++ file does take time initially, and it seems it's a bottleneck right 
+> now during the app's launch.
 
-As regards plots, because there're species with hundreds of thousands of events, I render them with `webGL`. The drawback is that it requires more resources from the user's OS, but also that old browsers may not support it. An optimal solution here would be detecting if the browser supports WebGL & using it then, reverting to the old CPU rendering otherwise.
+As regards plots, because there're species with hundreds of thousands of events, I render them with `webGL`. The drawback is that it requires more resources from the user's OS, but also that old browsers do not support it. An optimal solution here would be detecting if the browser supports WebGL & using it then, reverting to the old CPU rendering otherwise.
 
-As regards maps, I use `plotly`'s `canvas` option to improve rendering. Still, hundreds of thousands of events render slow.
+As regards maps, I use `plotly`'s `canvas` option to improve rendering. Still, hundreds of thousands of events render rel. slow.
 
-Lastly I use Redis pipelining features which are supported by Redux. This helps significantly improve the uploading performance. Other option would be Redis scripting, but considering that I typically have no more than 5-10k unique scientific names per file, I decided to follow the way of pipelining.
+Lastly I use Redis pipelining features which are supported by Redux. This helps significantly improve the uploading performance. Other option would be Redis scripting, but considering that I typically have no more than 5-10k unique scientific names per file, I decided to follow the way of pipelining. 
+Besides, because Redis de-facto stores every value as a string, I've firstly to convert them to double for comparison with the user's input. `Lubridate` here has helped improve the performance significantly (0.9s vs 7s for 500K date strings) as compared to the built-in `as.Date()`. 
 
 However, I assume that some code blocks still remain unoptimised. For example, I could try to parallelise the processing of `occurrence` files & construction of indexes in `readis_uploader.R`. But that'd require spending a little bit more time on the analysis of data dependencies. Moreover, rendering of really large datasets (like that of "Parus major") still remains laggy. 
 
