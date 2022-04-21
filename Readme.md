@@ -83,13 +83,15 @@ Not used. I found a built-in way (which doesn't require JS knowledge) to display
 - *Selection option for locations*: user could choose a location from a human-readable list (e.g. Germany, Poland, UK, Europe, World)
 	- difficulty for me: easy;
 - *Dark theme switcher*
-	- difficulty for me: easy if using shinyThemes, harder if customising CSS;
+	- difficulty for me: rel. easy, but also requires dark version of the map;
 - *Flashing the clicked map's point on the timeline* 
 	- difficulty for me: not sure but it seems there's a buildt-in workaround for this;
 - Supplying *more information about the events*, like links to multimedia files, links to occurrence IDs etc.
 	- difficulty for me: easy;
 - Option to *select timeline's units* (year, monthm decade) instead of days only
 	- difficulty for me: easy.
+- Option to remove the timeline if the user wants it;
+	- difficulty for me: easy;
 	
 ## P.S. On DB updates
 
