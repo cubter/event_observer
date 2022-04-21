@@ -67,7 +67,7 @@ ui <- bootstrapPage(
         
         dateRangeInput(
             "dates", 
-            label = h5("Choose dates (optional)"),
+            label = h5("Choose dates"),
             start = "1000-01-01",
             min = "1000-01-01",
             max = Sys.Date(),
@@ -113,6 +113,7 @@ ui <- bootstrapPage(
             )
         ),
     
+    # Button allowing to hide the timeline's panel.
     conditionalPanel(
         condition = 'input.species != ""',
         absolutePanel(
@@ -131,7 +132,7 @@ ui <- bootstrapPage(
                 inputId = "hide_timeline",
                 label_on = HTML("<b>Show timeline!</b>"), 
                 icon_on = icon("check"),
-                fill = TRUE,
+                fill = FALSE,
                 shape = "curve",
                 status_on = "info",
                 status_off = "danger", 

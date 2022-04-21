@@ -25,20 +25,47 @@ species <- c(vernac_names, sci_names) %>% unlist()
 # Counting the top years, by events.
 # It seems Redux just doesn't know yet that ZREVRANGE is deprecated.
 year_count <- r$ZREVRANGE("year_count", 0, -1, "WITHSCORES")
-top_year_count <- year_count[1:20]
-top_year_indexes <- map2_lgl(top_year_count, seq_along(top_year_count), ~ (.y %% 2 == 1))
 
-top_years <- tibble(year = top_year_count[top_year_indexes] %>% unlist() %>% as.integer(),
-                    score = top_year_count[!top_year_indexes] %>% unlist() %>% as.integer())
-top_years$year_share = (top_years$score/sum(top_years$score) * 100) %>% 
-    round(., 1)
+get_top_years <- function(year_count)
+{
+    if (year_count %>% is_empty())
+        return(tibble(NULL))
+    
+    if ((year_count %>% length()) < 20)
+        top_year_count <- year_count
+    else
+        top_year_count <- year_count[1:20]
+    
+    top_year_indexes <- map2_lgl(
+        top_year_count, seq_along(top_year_count), ~ (.y %% 2 == 1))
+    
+    top_years <- tibble(year = top_year_count[top_year_indexes] %>% unlist() %>% 
+                            as.integer(),
+                        score = top_year_count[!top_year_indexes] %>% unlist() %>% 
+                            as.integer())
+    
+    top_years$year_share = (top_years$score/sum(top_years$score) * 100) %>% 
+        round(., 1)
+    
+    return(top_years)
+}
+top_years <- get_top_years(year_count)
 
-# Counting the last 10 years, by events.
-all_year_indexes <- map2_lgl(year_count, seq_along(year_count), ~ (.y %% 2 == 1))
-all_years <- tibble(year = year_count[all_year_indexes] %>% unlist() %>% as.integer(),
-                    score = year_count[!all_year_indexes] %>% unlist() %>% as.integer())
-# Default method (radix sort) is OK, as the num of years is not big
-last_ten_years <- filter(all_years, year %in% (year %>% sort(decreasing = T))[1:10])
+get_last_years <- function(year_count)
+{
+    if (year_count %>% is_empty())
+        return(tibble(NULL))
+    
+    # Counting the last 10 years, by events.
+    all_year_indexes <- map2_lgl(year_count, seq_along(year_count), ~ (.y %% 2 == 1))
+    all_years <- tibble(year = year_count[all_year_indexes] %>% unlist() %>% 
+                            as.integer(),
+                        score = year_count[!all_year_indexes] %>% unlist() %>% 
+                            as.integer())
+    # Default method (radix sort) is OK, as the num of years is not big
+    last_ten_years <- filter(all_years, year %in% (year %>% sort(decreasing = T))[1:10])
+}
+last_ten_years <- get_last_years(year_count)
 
 num_events <- r$HGET("num_events", "value")         # total num of events
 last_update_date <- r$HGET("update_date", "value")  # last update's date
@@ -78,7 +105,7 @@ server <- function(input, output, session)
     
     statisticsServer(
         "statistics", top_years, last_ten_years, length(sci_names), num_events, 
-        last_update_date, reactive(test()))
+        last_update_date, reactive(colorScheme()))
     
     # Processes user's input for species.
     filteredData <- reactive(

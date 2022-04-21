@@ -6,8 +6,8 @@ statisticsUI <- function(id)
         h4(textOutput(ns("total_species")), align = "right"),
         h5(textOutput(ns("total_events")), align = "right"),
         h6(textOutput(ns("last_update_date")), align = "right"),
-        plotlyOutput(ns("top_years"), height = "280px", width = "auto"),
-        plotlyOutput(ns("last_ten_years"), height = "280px", width = "auto")
+        plotlyOutput(ns("top_years"), height = "240px", width = "auto"),
+        plotlyOutput(ns("last_ten_years"), height = "240px", width = "auto")
     )
 }
 
@@ -18,7 +18,7 @@ statisticsServer <- function(
     num_species, 
     num_events, 
     last_update_date,
-    plotOption)
+    colorOption)
 {
     moduleServer(
         id,
@@ -44,100 +44,111 @@ statisticsServer <- function(
             
             # Plots' part
             
-            markers_color <- brewer.pal(7, "Blues")[7]
-            
-            # TODO: check that data is not empty
-            # Generates the plotly object displaying the data for the last 10 years.
-            ten_years_plot <- plot_ly(
-                data = last_ten_years_data, 
-                color = I(markers_color),
-                type = "bar",
-                showlegend = FALSE
-            )
-            ten_years_plot %<>% add_bars(
-                x = ~year, 
-                y = ~log(score, 2),
-                width = 0.3,
-                hovertemplate = ~paste(
-                    "<b>Year</b>:", year, "<br><b>Count</b>:",
-                    score, "<extra></extra>"),
-                marker = list(opacity = 0.7)
-            )
-            
-            ten_years_plot %<>% config(., scrollZoom = TRUE) %>%
-                layout(
-                    xaxis = list(
-                        showgrid = FALSE, 
-                        zeroline = FALSE,
-                        title = list(
-                            text = "<b>Last ten years dynamics</b>",
-                            family = "Courier",
-                            size = 13),
-                        tickfont = list(
-                            family = "Courier",
-                            size = 13)
-                    ),
-                    yaxis = list(
-                        showgrid = FALSE, 
-                        zeroline = FALSE,
-                        title = list(
-                            text = "N events (log2)",
-                            family = "Courier",
-                            size = 13),
-                        tickfont = list(
-                            family = "Courier",
-                            size = 13)
-                    ),
+            # Renders the last 10 years plot.
+            observe(
+            {
+                # TODO: replace with validate()
+                if (last_ten_years_data %>% is_empty())
+                    return()
+                
+                last_years_plot <- plot_ly(
+                    data = last_ten_years_data, 
+                    color = I(colorOption()),
+                    type = "bar",
                     showlegend = FALSE
                 )
+                last_years_plot %<>% add_bars(
+                    x = ~year, 
+                    y = ~log(score, 2),
+                    width = 0.3,
+                    hovertemplate = ~paste(
+                        "<b>Year</b>:", year, "<br><b>Count</b>:",
+                        score, "<extra></extra>"),
+                    marker = list(opacity = 0.7)
+                )
                 
-            top_years_plot <- plot_ly(
-                data = top_years_data, 
-                x = ~year, 
-                y = ~year_share,
-                type = "scatter",
-                mode = "markers",
-                text = ~paste(score, "observations", "<br><b>Year</b>:", year,
-                              "<br><b>Share</b>:", year_share, "%"),
-                hoverinfo = "text",
-                showlegend = FALSE, 
-                color = I(markers_color),
-                marker = list(
-                    size = ~log(score, 1.5),
-                    opacity = 0.6,
-                    line = list(width = 0))
-            )
-            
-            top_years_plot <- top_years_plot %>% 
-                config(., scrollZoom = TRUE) %>%
-                layout(.,
-                       xaxis = list(
-                           showgrid = FALSE,
-                           zeroline = FALSE,
-                           title = list(
-                               text = "<b>Top ten years, by events</b>",
-                               family = "Courier",
-                               size = 13),
-                           tickfont = list(
-                               family = "Courier",
-                               size = 13)
-                       ),
-                       yaxis = list(
-                           showgrid = FALSE,
-                           zeroline = FALSE,
-                           title = list(
-                               text = "Percent",
-                               family = "Courier",
-                               size = 13),
-                           tickfont = list(
-                               family = "Courier",
-                               size = 13)
-                       ),
-                       showlegend = FALSE
-                ) 
-            
-            output$top_years <- renderPlotly(top_years_plot)
-            output$last_ten_years <- renderPlotly(ten_years_plot) 
-        
+                last_years_plot %<>% config(., scrollZoom = TRUE) %>%
+                    layout(
+                        xaxis = list(
+                            showgrid = FALSE, 
+                            zeroline = FALSE,
+                            title = list(
+                                text = "<b>Last ten years dynamics</b>",
+                                family = "Courier",
+                                size = 13),
+                            tickfont = list(
+                                family = "Courier",
+                                size = 13)
+                        ),
+                        yaxis = list(
+                            showgrid = FALSE, 
+                            zeroline = FALSE,
+                            title = list(
+                                text = "N events (log2)",
+                                family = "Courier",
+                                size = 13),
+                            tickfont = list(
+                                family = "Courier",
+                                size = 13)
+                        ),
+                        showlegend = FALSE
+                    )
+                
+                    output$last_ten_years <- renderPlotly(last_years_plot) 
+            })
+             
+            # Rendering top 10 years plot.
+            observe(
+            {  
+                if (top_years_data %>% is_empty())
+                    return()
+                
+                top_years_plot <- plot_ly(
+                    data = top_years_data, 
+                    x = ~year, 
+                    y = ~year_share,
+                    type = "scatter",
+                    mode = "markers",
+                    text = ~paste(score, "observations", "<br><b>Year</b>:", year,
+                                  "<br><b>Share</b>:", year_share, "%"),
+                    hoverinfo = "text",
+                    showlegend = FALSE, 
+                    color = I(colorOption()),
+                    marker = list(
+                        size = ~log(score, 1.5),
+                        opacity = 0.6,
+                        line = list(width = 0))
+                )
+                
+                top_years_plot <- top_years_plot %>% 
+                    config(., scrollZoom = TRUE) %>%
+                    layout(.,
+                           xaxis = list(
+                               showgrid = FALSE,
+                               zeroline = FALSE,
+                               title = list(
+                                   text = "<b>Top ten years, by events</b>",
+                                   family = "Courier",
+                                   size = 13),
+                               tickfont = list(
+                                   family = "Courier",
+                                   size = 13)
+                           ),
+                           yaxis = list(
+                               showgrid = FALSE,
+                               zeroline = FALSE,
+                               title = list(
+                                   text = "Percent",
+                                   family = "Courier",
+                                   size = 13),
+                               tickfont = list(
+                                   family = "Courier",
+                                   size = 13)
+                           ),
+                           showlegend = FALSE
+                    )
+                
+                output$top_years <- renderPlotly(top_years_plot)
+            })
     })
 }

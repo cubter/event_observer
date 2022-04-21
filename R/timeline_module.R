@@ -7,7 +7,7 @@ timelineUI <- function(id)
         id = "timeline_panel",
         class = "panel panel-default",
         fixed = TRUE,
-        draggable = TRUE,
+        draggable = FALSE,
         top = "auto",
         left = 40,
         right = 40,
