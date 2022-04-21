@@ -12,6 +12,7 @@ library(redux)
 library(stringr)
 library(Rcpp)
 library(bslib)
+library(lubridate)
 
 # Initialising connection to Redis.
 r <- redux::hiredis()
@@ -162,13 +163,13 @@ server <- function(input, output, session)
 
         # Filtering the dates acc. to user's input
         user_dates <- input$dates
-        events_dates <- as.Date(out$date)
-        start <- as.Date(user_dates[1])
-        end <- as.Date(user_dates[2])
+        events_dates <- out$date %>% ymd()
+        start <- ymd(user_dates[1])
+        end <- ymd(user_dates[2])
         
-        # This is a bottleneck right now: it takes ~ 7s to convert 500K strings
-        # to dates. I'm in process of finding a workaround for this.
-        out %<>% filter(
+        # Default as.Date() has been replaced with lubridate's ymd(), which is
+        # on avg. 8 times faster.
+        out %<>% subset(.,
             (events_dates <= end | is.na(events_dates)) &
                 (events_dates >= start | is.na(events_dates)))
         

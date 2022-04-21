@@ -12,6 +12,7 @@ library(redux)
 library(stringr)
 library(Rcpp)
 library(bslib)
+library(lubridate)
 
 # Define UI for application that draws a histogram
 ui <- bootstrapPage(
