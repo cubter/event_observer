@@ -3,7 +3,7 @@
 Available [here](http://194.87.186.139:3838/sample-apps/eventObserver/).
 
 The app consists of three main parts:
-1. preprocessor files (`preprocessor.R` & `preprocessor.sh`), which split the original file into smaller ones (more in "Performance optimisation skill part" below),
+1. preprocessor files (`preprocessor.R` & `preprocessor.sh`), which split the original file into smaller ones (more in "Thoughts on performance optimisation" section below),
 2. redis uploader (`redis_uploader.R`) and 
 3. the app itself: `server` & `UI` files & Shiny modules. 
 
