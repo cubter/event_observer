@@ -68,10 +68,11 @@ As regards plots, because there're species with hundreds of thousands of events,
 
 As regards maps, I use `plotly`'s `canvas` option to improve rendering. Still, hundreds of thousands of events render rel. slow.
 
-Lastly I use Redis pipelining features which are supported by Redux. This helps significantly improve the uploading performance. Other option would be Redis scripting, but considering that I typically have no more than 5-10k unique scientific names per file, I decided to follow the way of pipelining. 
-Besides, because Redis de-facto stores every value as a string, I've firstly to convert them to double for comparison with the user's input. `Lubridate` here has helped improve the performance significantly (0.9s vs 7s for 500K date strings) as compared to the built-in `as.Date()`. 
+Lastly I use Redis pipelining features which are supported by Redux. This helps significantly improve the uploading performance. Other option would be Redis scripting, but considering that I typically have no more than 5-10k unique scientific names per file, I decided to follow the way of pipelining.  
+ 
+Besides, because Redis de-facto stores every value as a string, when extracting dates, I've firstly to convert them to `double`s to enable filtering. `Lubridate` here has helped improve the performance significantly (0.9s vs 7s for 500K date strings) as compared to the built-in `as.Date()`. 
 
-However, I assume that some code blocks still remain unoptimised. For example, I could try to parallelise the processing of `occurrence` files & construction of indexes in `readis_uploader.R`. But that'd require spending a little bit more time on the analysis of data dependencies. Moreover, rendering of really large datasets (like that of "Parus major") still remains laggy. 
+However, I assume that some code blocks still remain unoptimised. For example, I could try to parallelise the processing of `occurrence` files. But that'd require rewriting the existing loops to remove data dependecies. Moreover, rendering of really large data sets (like that of "Parus major") still remains laggy. 
 
 
 ### Infrastructure 
@@ -100,6 +101,6 @@ Not used. I found a built-in way (which doesn't require JS knowledge) to display
 	
 ## P.S. On DB updates
 
-Despite that R's evrinoments are the fastest implementation of hash tables available in R, the avg. speed of processing a .csv file with 1500000 lines is several minutes, making up more between an hour and two for the whole data set. This is a barely acceptable speed, if the data are updated frequently; that's why my next step here would also be switching to `Rcpp` & using STL's unordered maps.
+Despite that R's evrinoments are the fastest implementation of hash tables available in R, the avg. speed of processing a .csv file with 1500000 lines is several minutes, making up between an hour and two for the whole data set. This is a barely acceptable speed, if the data are updated frequently; that's why my next step here would also be switching to `Rcpp` & using STL's unordered maps.
 
-I could also simply send the commands to Redis without prior construction of the indexes at all, based on the assumption that Redis will handle hash insertions quicker. But that'd require significatnly more requests to the DB.
+I could also send perhaps 10x more commands to Redis without prior construction of the indexes at all, based on the assumption that Redis will handle hash insertions quicker. But that'd require significantly more requests to the DB.
