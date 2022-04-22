@@ -48,15 +48,15 @@ As one may see, if the user selects a vernacular name, we firstly have to extrac
 Well, it would be inefficient to read even a 2GB file every time the app is loaded. Besides, constructing indexes, even considering that environments are faster than named lists, does take a lot of time. Of course, I could store the constructed indexes on disk, but that'd still be slower. 
 
 I could basically use SQL, but I didn't see the need to. Redis is relatively fast, the data required by the app are not huge, and the business requirements, IMO, fit well into usage of a key-value store. But it's also a matter of choice :).
-The only bottleneck here I'd like to fix is that I've to filter the dates, based on the user's choice, in the code, having prior transformed strings extracted from `Redis` to `R`'s Dates objects. But again, it's performance vs storage efficiency. 
+The only drawback is that I can not pass the filtering of dates values to Redis, and I've got to do it in the code, having prior transformed strings extracted from `Redis` to `double`s. But again, it's performance vs storage efficiency. 
 
 ## Extra assignments
 
 ### Beautiful UI skill
-Although I didn't handle CSS directly, except in rare cases, I tried to make the app look better than by default. Little visualisation improvements mostly concern the plots, and I also used `shinyWidgets` & `bslib`. Bslib also makes an app to load a bit slower, hence if the speed is not acceptable, it should be switched off.
+Although I didn't handle CSS directly except in rare cases, I tried to make the app look better than by default. Little visualisation improvements mostly concern the plots, and I also used `shinyWidgets` & `bslib`. Bslib also makes an app to load a bit slower, hence if the speed is not acceptable, it can be switched off.
 
 ### Thoughts on performance optimisation
-I tried to optimise performance everywhere I could, and used the whole dataset instead of Poland-only. Still it does take time to point hundreds of thousands of events on the map & timeline -- it's a rendering issue. I believe, there's not much that can be done about it, except for using other libraries like `mapdeck`.
+I tried to optimise the performance everywhere I could, and used the whole dataset instead of Poland-only. Still it does take time to point hundreds of thousands of events on the map & timeline -- it's a rendering issue. I believe, there's not much that can be done about it, except for using other libraries like `mapdeck`.
 
 Besides, I shrinked the initial file, having only the required columns left. This helped reduce the size by as much as 18 Gb. As a result, I obtained a rel. not large dataset, which fitted well into Redis database, assuming the server has at least 2 GB RAM. Had I had to deal with the whole initial file, I'd have gone a more typical SQL way & used Redis for caching the most requested species.
 
