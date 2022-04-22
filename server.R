@@ -99,10 +99,6 @@ server <- function(input, output, session)
     }
     )    
     
-    test <- reactive({
-        out = input$plot_selector
-        out})
-    
     statisticsServer(
         "statistics", top_years, last_ten_years, length(sci_names), num_events, 
         last_update_date, reactive(colorScheme()))
@@ -150,14 +146,14 @@ server <- function(input, output, session)
         
         return(list(tibble::tibble(lat, long), datetime))
     })
-    
+
+    # Shows a notification if the user has selected species with more than 30K observations.    
     observe(
     {
         if (filteredData() %>% is_empty() %>% not())
         {
             if (nrow(filteredData()[[1]]) > 30000)
             {
-                # Save the ID for removal later
                 showModal(modalDialog(
                     title = "Large dataset",
                     "Wow! You've chosen species with many observations. It will take time for me to depict them.",
@@ -168,8 +164,8 @@ server <- function(input, output, session)
     })
     
     # Constructs a tibble with events data, assigns weights to different events,
-    # which are used later for the timeline. Returns empty tibble if no data
-    # have been found in the DB or if an empty species input is provided.
+    # which are used for the timeline. Returns empty tibble if no data
+    # have been found or if empty species input is provided.
     eventsData <- reactive(
     {
         if (filteredData() %>% is_empty())
@@ -208,6 +204,7 @@ server <- function(input, output, session)
         
         progress$set(50)
         
+	# assign_weights is from Rcpp.
         row_weights <- assign_weights(out$date, seq_along(out$date))
         out$weight[row_weights$rows] <- row_weights$weights
 
@@ -231,6 +228,7 @@ server <- function(input, output, session)
     }
     )
     
+    # Draws teh map with all the points.
     mapServer(
         "map", 
         reactive(eventsData()), 
@@ -260,17 +258,17 @@ server <- function(input, output, session)
         return(out)
     })
     
-    # Responsible for drawing the timeline dynamically based on the map's bounds
+    # Responsible for drawing the timeline dynamically based on the map's bounds.
     timelineServer(
         "events_timeline", reactive(observationsInBoundsData()), reactive(colorScheme()))
     
     updateProgressBar(session = session, id = "pb0", value = 100)
     
-    # Downloader.
+    # Downloads the .csv file with all the observations for the selected species.
     output$download <- downloadHandler(
         filename = function()
         {
-            return("events_data.csv")
+            return(paste0("events_data_", input$species, ".csv"))
         },
         content = function(file)
         {
