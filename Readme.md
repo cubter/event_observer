@@ -64,7 +64,7 @@ I've written `C++` code to assign weights to timeline's points so that they've d
 > Despite this, sourcing a C++ file does take time initially, and it seems it's a bottleneck right 
 > now during the app's launch.
 
-As regards plots, because there're species with hundreds of thousands of events, I render them with `webGL`. The drawback is that it requires more resources from the user's OS, but also that old browsers do not support it. An optimal solution here would be detecting if the browser supports WebGL & using it then, reverting to the old CPU rendering otherwise.
+As regards plots, because there're species with hundreds of thousands of events, I render them with `webGL`. The drawback is that old browsers do not support it. An optimal solution here would be detecting, if the browser supports WebGL & using it then, reverting to the old CPU rendering otherwise. But I'm not sure that it can be implemented other than writing JS code.
 
 As regards maps, I use `plotly`'s `canvas` option to improve rendering. Still, hundreds of thousands of events render rel. slow.
 
