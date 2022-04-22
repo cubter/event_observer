@@ -120,7 +120,7 @@ ui <- bootstrapPage(
             id = "hide_timeline_panel",
             class = "panel panel-default",
             fixed = TRUE,
-            draggable = TRUE,
+            draggable = FALSE,
             top = "auto",
             left = 40,
             right = 40,
