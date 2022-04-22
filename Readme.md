@@ -35,10 +35,10 @@ Lastly, if the user has selected species with more than 30 000 events, a notific
 I store all the data in a `Redis` instance. The motivation for this was that Redis is fast, and the data, on the other side, are not large.  
 
 The structure is as follows:
-- list <scientific name: coordinates> (coord. are pasted together as a string)
-- list <scientific name: dateTimes> (dates & time are pasted together as a string)
-- hash set <vernacularName: scientificName>
-- sorted sets <year: number of observations>
+- `list` \<scientific name: coordinates\> (coord. are pasted together as a string)
+- `list` \<scientific name: dateTimes\> (dates & time are pasted together as a string)
+- `hash set` \<vernacularName: scientificName\>
+- `sorted set`s \<year: number of observations\>
 
 Redis lists are linked lists, so inserting a new element takes O(1) time. This is a desired DS for storing coordinates, dates & times in the sense of insertion optimisation, but this also makes retrieving specific values improssible. So, if the user filters dates, I've to apply filtering in R.
 
