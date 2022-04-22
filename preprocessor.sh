@@ -20,7 +20,9 @@ done
 # Flushing the existing DB
 redis-cli FLUSHDB
 
+rm logs/redux_log.txt
+
 echo "Uploading part."
 for i in Data/*_*; do
-	Rscript redis_uploader.R $i > logs/redux_log.txt
+	Rscript redis_uploader.R $i >> logs/redux_log.txt
 done
