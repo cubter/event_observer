@@ -1,3 +1,6 @@
+# Summary: preprocesses the source file with events by removing the unnecessary 
+# columns.
+
 args = commandArgs(trailingOnly=TRUE)
 
 if (length(args) != 2) 

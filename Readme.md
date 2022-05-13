@@ -27,9 +27,9 @@ Lastly, if the user has selected species with more than 30 000 events, a notific
 
 - Proper exception handling: I should have used `try`/`tryCatch` statements extensively. But once again: it's about time. 
 
-- You may notice that the map's points' rendering tends to be slow once the number of events is equal to tens of thousands. Hence, I'm showing both a progress bar & a notification so that the user doesn't think, the app has suddenly broken'. Besides, two solutions for slow rendering I've been able to found: 
+- You may notice that the map's points' rendering tends to be slow once the number of events is equal to tens of thousands. Hence, I'm showing both a progress bar & a notification, so that the user doesn't think, the app has suddenly broken. Besides, two solutions for slow rendering I've been able to found: 
 	1. As a workaround, I've enabled clustering of nearby points by default. It seems, it makes the rendering faster.
-	2. Second, one could use `mapdeck` instead of leaflet. Mapdeck relies on extensive usage of `webGL` which makes rendering significantly faster, but its drawback is that it uses Mapbox & requires its API token. Because I don't know, whether a proprietary solution for this app, I had to refuse from this approach.  
+	2. Second, one could use `mapdeck` instead of leaflet. Mapdeck relies on extensive usage of `webGL`, which makes rendering significantly faster, but the drawback is that it uses Mapbox & requires its API token. Because I don't know, whether a proprietary solution is appropriate for this app, I had to refuse from this approach.  
 
 ## Data
 I store all the data in a `Redis` instance. The motivation for this was that Redis is fast, and the data, on the other side, are not large.  
@@ -37,18 +37,18 @@ I store all the data in a `Redis` instance. The motivation for this was that Red
 The structure is as follows:
 - `list`s \<scientific name: coordinates\> (coord. are pasted together as a string)
 - `list`s \<scientific name: dateTimes\> (dates & time are pasted together as a string)
-- `hash`es \<vernacularName: scientificName\>
+- `hash`es \<vernacular name: scientific name\>
 - `sorted set`s \<year: number of observations\>
 
-Redis lists are linked lists, so inserting a new element takes O(1) time. This is a desired DS for storing coordinates, dates & times in the sense of insertion optimisation, but this also makes retrieving specific values impossible. It means, if the user filters the dates, I've to apply filtering in R.
+Redis lists are linked lists, so inserting a new element takes O(1) time. This is a desired DS for storing coordinates, dates & times in the sense of insertion optimisation, but this also makes retrieving specific values impossible. 
 
-As one may see, if the user selects a vernacular name, we firstly have to extract the corresp. scientific name from the hash. Only then can we obtain the events' data. There's an obvious drawback of this approach: I've to address the DB twice. That essentially means 2x RTTs and 2x read operations. On the flip side is an optimised storage, which was my primary motivation. 
+As one may see, if the user selects a vernacular name, we firstly have to extract the corresp. scientific name from the hash. Only then can we obtain the events' data. There's an obvious drawback of this approach: I've to address the DB twice, which essentially means 2x RTTs and 2x read operations. On the flip side is an optimised storage, which was my primary motivation. 
 
 #### Why Redis, why not SQL or read directly from file?
-Well, it would be inefficient to read even a 2GB file every time the app is loaded. Besides, constructing indexes, even considering that environments are faster than named lists, does take a lot of time. Of course, I could store the constructed indexes on disk, but that'd still be slower. 
+Well, it would be inefficient to read even a 2 GB file every time the app is loaded. Constructing indexes, even considering that environments are faster than named lists, does take a lot of time, and without them the search would be rel. inefficient. Of course, I could store the constructed indexes on disk, but that'd still be slower. 
 
-I could basically use any RDBMS, but I didn't see the need to. Redis is relatively fast, the data required by the app are not huge, and the business requirements, I.M.O., fit well into usage of a key-value store. But it's also a matter of choice :).
-The only drawback is that I can not pass the filtering of dates to Redis, and I've got to do it in the code, having prior transformed extracted strings to `double`s. But again, it's performance vs storage efficiency. 
+I could basically use any RDBMS, but I didn't see the need to. Redis is relatively fast, the data required by the app are not huge, and the business requirements, IMO, fit well into usage of a key-value store. But it's also a matter of choice :).
+The only drawback is that I can not pass the filtering of dates to Redis, and I've got to do it in the code, having prior transformed extracted date strings to `double`s. But again, it's performance vs storage efficiency. 
 
 ## Extra assignments
 
@@ -80,7 +80,7 @@ I've deployed the app on my own VPS (2 CPUs, 2 GB RAM) using `Shiny server`. I p
 Please, note that the instances of Shiny server & Redis out there have default configurations. Had I dealt with a production-ready app, I'd have definitely customised their security settings beyond simple firewalling. I'd have also probably separated the app's server from the DB's one. 
 
 ### Javascript
-Not used. I found a built-in way (which doesn't require JS knowledge) to display the required information about each point on the map.
+Not used, though, I'm sure, working with `WebSockets` would constitute the app's performance improvement.
 
 ## Last: features I'd love to add, had I more time
 - *Selection option for locations*: user could choose a location from a human-readable list (e.g. Germany, Poland, UK, Europe, World)

@@ -17,10 +17,12 @@ library(lubridate)
 # Initialising connection to Redis.
 r <- redux::hiredis()
 
-# Obtaining vernacular & scientific names from the hash table.
-vernac_names <- r$HKEYS("vernacular_name:scientific_name")
-sci_names <- r$HVALS("vernacular_name:scientific_name")
-species <- c(vernac_names, sci_names) %>% unlist()
+# Obtaining the list of species. This list is static in the sense that it's updated
+# only when the Redis' instance data are updated as well. Hence, there's no need to 
+# query the instance every time the app is loaded.
+species <- read.delim(paste0(Sys.getenv("SHINY_DATA_PATH"), "/species", collapse = ""), 
+           header = F)
+species %<>% extract2("V1")
 
 # Counting the top years, by events.
 # It seems Redux just doesn't know yet that ZREVRANGE is deprecated.

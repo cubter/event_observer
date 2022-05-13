@@ -149,3 +149,11 @@ r$HSET("update_date", "value", Sys.Date() %>% as.character())
 
 cat("Uploading finished\n")
 
+vernac_names <- r$HKEYS("vernacular_name:scientific_name")
+sci_names <- r$HVALS("vernacular_name:scientific_name")
+species <- c(vernac_names, sci_names) %>% unlist()
+
+# Writing all the scientific & vernacular names to the file. This file will be used
+# in the app to construct the list of species for the user's selection.
+write(species, 
+      paste0(Sys.getenv("SHINY_DATA_PATH"), "/species", collapse = ""))
