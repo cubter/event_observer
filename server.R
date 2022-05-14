@@ -17,60 +17,38 @@ library(lubridate)
 # Initialising connection to Redis.
 r <- redux::hiredis()
 
+SHINY_DATA_PATH <- Sys.getenv("SHINY_DATA_PATH")
+
 # Obtaining the list of species. This list is static in the sense that it's updated
-# only when the Redis' instance data are updated as well. Hence, there's no need to 
-# query the instance every time the app is loaded.
-species <- read.delim(paste0(Sys.getenv("SHINY_DATA_PATH"), "/species", collapse = ""), 
-           header = F)
+# only when the Redis' instance data are updated as well.
+species <- read.delim(paste0(SHINY_DATA_PATH, "/species", collapse = ""), 
+                      header = F)
 species %<>% extract2("V1")
 
-# Counting the top years, by events.
-# It seems Redux just doesn't know yet that ZREVRANGE is deprecated.
-year_count <- r$ZREVRANGE("year_count", 0, -1, "WITHSCORES")
-
-get_top_years <- function(year_count)
+# Reading the files with years stats.
+read_years_files <- function(file_path)
 {
-    if (year_count %>% is_empty())
+    if (!file.exists(file_path))
         return(tibble(NULL))
-    
-    if ((year_count %>% length()) < 20)
-        top_year_count <- year_count
     else
-        top_year_count <- year_count[1:20]
-    
-    top_year_indexes <- map2_lgl(
-        top_year_count, seq_along(top_year_count), ~ (.y %% 2 == 1))
-    
-    top_years <- tibble(year = top_year_count[top_year_indexes] %>% unlist() %>% 
-                            as.integer(),
-                        score = top_year_count[!top_year_indexes] %>% unlist() %>% 
-                            as.integer())
-    
-    top_years$year_share = (top_years$score/sum(top_years$score) * 100) %>% 
-        round(., 1)
-    
-    return(top_years)
+        return(read.csv(file_path))
 }
-top_years <- get_top_years(year_count)
-
-get_last_years <- function(year_count)
-{
-    if (year_count %>% is_empty())
-        return(tibble(NULL))
-    
-    # Counting the last 10 years, by events.
-    all_year_indexes <- map2_lgl(year_count, seq_along(year_count), ~ (.y %% 2 == 1))
-    all_years <- tibble(year = year_count[all_year_indexes] %>% unlist() %>% 
-                            as.integer(),
-                        score = year_count[!all_year_indexes] %>% unlist() %>% 
-                            as.integer())
-    # Default method (radix sort) is OK, as the num of years is not big
-    last_ten_years <- filter(all_years, year %in% (year %>% sort(decreasing = T))[1:10])
-}
-last_ten_years <- get_last_years(year_count)
-
-num_events <- r$HGET("num_events", "value")         # total num of events
-last_update_date <- r$HGET("update_date", "value")  # last update's date
+top_years <- read_years_files(paste0(SHINY_DATA_PATH, "/top_years_count.csv", 
+                                     collapse = ""))
+last_ten_years <- read_years_files(paste0(SHINY_DATA_PATH, "/last_ten_years_count.csv", 
+                                         collapse = "")) 
+# Total num of events.
+num_events_file_path <- paste0(SHINY_DATA_PATH, "/num_events.txt", collapse = "")
+num_events <- ifelse(file.exists(num_events_file_path), 
+                     read.delim(num_events_file_path, header = F) %>% 
+                         extract2("V1"),
+                     0)
+last_update_date_file_path <- paste0(SHINY_DATA_PATH, "/last_update_date.txt", collapse = "")
+# Date of the last DB update.
+last_update_date <- ifelse(file.exists(last_update_date_file_path), 
+                           read.delim(last_update_date_file_path, header = F) %>% 
+                               extract2("V1"),
+                           "Unknown")
 
 # Sourcing Rcpp file
 sourceCpp("weights_assigner.cpp")

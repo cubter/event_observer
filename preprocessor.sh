@@ -27,6 +27,9 @@ for i in Data/*_*; do
 	Rscript redis_uploader.R $i >> logs/redux_log.txt
 done
 
+# Extracting the static values from the DB
+Rscript static_data_extractor.R
+
 # Setting the env. var to be used to store the data for the app
 if [ $(cat ~/.Rprofile | grep "Sys.setenv(SHINY_DATA_PATH" | wc -l) -eq 0 ]; then 
 	 echo "Sys.setenv(SHINY_DATA_PATH=\"'/home/user/shiny_data'\")" >> ~/.Rprofile
