@@ -80,7 +80,7 @@ server <- function(input, output, session)
     )    
     
     statisticsServer(
-        "statistics", top_years, last_ten_years, length(sci_names), num_events, 
+        "statistics", top_years, last_ten_years, length(species), num_events, 
         last_update_date, reactive(colorScheme()))
     
     # Processes user's input for species.
@@ -126,7 +126,7 @@ server <- function(input, output, session)
         
         return(list(tibble::tibble(lat, long), datetime))
     })
-
+    
     # Shows a notification if the user has selected species with more than 30K observations.    
     observe(
     {

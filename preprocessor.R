@@ -1,4 +1,4 @@
-# Summary: preprocesses the source file with events by removing the unnecessary 
+# Summary: preprocesses the source file containing events by removing the unnecessary 
 # columns.
 
 args = commandArgs(trailingOnly=TRUE)
