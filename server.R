@@ -13,6 +13,8 @@ library(stringr)
 library(Rcpp)
 library(bslib)
 library(lubridate)
+library(memoise)
+library(cachem)
 
 # Initialising connection to Redis.
 r <- redux::hiredis()
@@ -53,6 +55,26 @@ last_update_date <- ifelse(file.exists(last_update_date_file_path),
 # Sourcing Rcpp file
 sourceCpp("weights_assigner.cpp")
 
+# Caching part. I use disk cache, which is obviously slower, instead of memory one 
+# to spare memory in case the app is used by multiple users simultaneously. If this 
+# is not the case, and there's plenty of memory, it can always be switched.
+# 
+# Yes, I know that it doesn't make a lot of sense to cache Redis results, 
+# considering that Redis instance is on the same server as the app. However this 
+# solution is based on the assumption that they're separated & reading from disk is 
+# faster.
+# 
+# Setting cache directory for memoise.
+disk_cache <- cachem::cache_disk(".rcache")
+
+# Functions to cache.
+mem_LRANGE <- memoise(r$LRANGE, cache = disk_cache)
+mem_HGET <- memoise(r$HGET, cache = disk_cache)
+mem_str_split <- memoise(str_split, cache = disk_cache)
+mem_as_double <- memoise(as.double, cache = disk_cache)
+mem_paste <- memoise(paste, cache = disk_cache)
+mem_assign_weights <- memoise(assign_weights, cache = disk_cache)
+
 server <- function(input, output, session) 
 {
     updateProgressBar(session = session, id = "pb0", value = 50)
@@ -80,7 +102,7 @@ server <- function(input, output, session)
     )    
     
     statisticsServer(
-        "statistics", top_years, last_ten_years, length(sci_names), num_events, 
+        "statistics", top_years, last_ten_years, length(species), num_events, 
         last_update_date, reactive(colorScheme()))
     
     # Processes user's input for species.
@@ -91,40 +113,44 @@ server <- function(input, output, session)
         if (species == "")
             return(list())
         
-        coordinates <- r$LRANGE(paste(species, "coord", sep = ":"), 0, -1)
-        datetime <- r$LRANGE(paste(species, "datetime", sep = ":"), 0, -1)
+        coordinates <- mem_LRANGE(paste(species, "coord", sep = ":"), 0, -1)
+        datetime <- mem_LRANGE(paste(species, "datetime", sep = ":"), 0, -1)
         
         # If empty list is returned, most probably vernacular name has been provided,
         # hence, we need to get the scientific name first.
         if (coordinates %>% is_empty())
         {
-            sci_name <- r$HGET("vernacular_name:scientific_name", species)
+            sci_name <- mem_HGET("vernacular_name:scientific_name", species)
             
             # If no appropriate scientific name has been found.
             if (sci_name %>% is.null())
                 return(list())
             
-            coordinates <-
-                r$LRANGE(paste(sci_name, "coord", sep = ":"), 0, -1)
-            datetime <-
-                r$LRANGE(paste(sci_name, "datetime", sep = ":"), 0, -1)
+            coordinates <- mem_LRANGE(paste(sci_name, "coord", sep = ":"), 0, -1)
+            datetime <- mem_LRANGE(paste(sci_name, "datetime", sep = ":"), 0, -1)
         }
         
         if (coordinates[[1]] == "" && (length(coordinates) == 1))
             return(list())
         
-        coordinates %<>%
-            stringr::str_split(",", simplify = T)
-        lat <- coordinates[, 1] %>% as.double()
-        long <- coordinates[, 2] %>% as.double()
+        coordinates %<>% mem_str_split(",", simplify = T)
+        lat <- coordinates[, 1] %>% mem_as_double()
+        long <- coordinates[, 2] %>% mem_as_double()
         
-        datetime %<>%
-            stringr::str_split(",", simplify = T)
-        datetime %<>% tibble::as_tibble()
+        datetime %<>% mem_str_split(",", simplify = T)
+        datetime %<>% as_tibble()
         
         colnames(datetime) <- c("date", "time")
         
-        return(list(tibble::tibble(lat, long), datetime))
+        # Setting empty time to "no time".
+        datetime$time[(datetime$time == "") %>% which()] <- "no time"
+        
+        popups <- mem_paste(
+            "<b>Place</b>: ", lat, ", ", long, 
+            "<br><b>Time</b>: ", datetime$date, ", ", datetime$time,
+            sep = "")
+        
+        return(list(tibble(lat, long), datetime, popups))
     })
 
     # Shows a notification if the user has selected species with more than 30K observations.    
@@ -145,7 +171,7 @@ server <- function(input, output, session)
     
     # Constructs a tibble with events data, assigns weights to different events,
     # which are used for the timeline. Returns empty tibble if no data
-    # have been found or if empty species input is provided.
+    # have been found or if input with no species is provided.
     eventsData <- reactive(
     {
         if (filteredData() %>% is_empty())
@@ -166,13 +192,13 @@ server <- function(input, output, session)
             time = dt_data$time,
             lat = space_data$lat,
             long = space_data$long,
-            coord = paste(space_data$lat, space_data$long, sep = ", "),
+            popup = f_data[[3]],
             weight = 0.1  # arbitrary number
         )
 
         # Filtering the dates acc. to user's input
         user_dates <- input$dates
-        events_dates <- out$date %>% ymd()
+        events_dates <- ymd(out$date)
         start <- ymd(user_dates[1])
         end <- ymd(user_dates[2])
         
@@ -184,12 +210,9 @@ server <- function(input, output, session)
         
         progress$set(50)
         
-	# assign_weights is from Rcpp.
-        row_weights <- assign_weights(out$date, seq_along(out$date))
+	    # assign_weights is from the C++ file.
+        row_weights <- mem_assign_weights(out$date, seq_along(out$date))
         out$weight[row_weights$rows] <- row_weights$weights
-
-        # Setting empty time to "None"
-        out$time[map_lgl(out$time, ~ .x == "")] <- "None"
         
         return(out)
     }

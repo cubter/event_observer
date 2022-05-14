@@ -13,6 +13,8 @@ library(stringr)
 library(Rcpp)
 library(bslib)
 library(lubridate)
+library(memoise)
+library(cachem)
 
 # Define UI for application that draws a histogram
 ui <- bootstrapPage(

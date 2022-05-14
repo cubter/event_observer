@@ -30,10 +30,6 @@ timelineServer <- function(id, observationsInBoundsData, color)
         {
             output$timeline <- renderPlotly(
             {
-                # progress <- shiny::Progress$new()
-                # on.exit(progress$close())
-                # progress$set(message = "Making plot", value = 0)
-                
                 timeline_data <- observationsInBoundsData()
                 
                 # TODO: proper handling
@@ -55,10 +51,8 @@ timelineServer <- function(id, observationsInBoundsData, color)
                     color = I(color()),
                     # popup text
                     hovertemplate = ~paste(
-                        "<b>Place</b>:", coord, 
-                        "<br><b>Date</b>:", date,
-                        "<br><b>Time</b>:", time, 
-                        "<extra></extra>")
+                        # extra is needed to remove extra labels
+                        popup,  "<extra></extra>")
                     ) %>% 
                     toWebGL()
                 
@@ -87,6 +81,7 @@ timelineServer <- function(id, observationsInBoundsData, color)
                     )
                 
                 progress$set(value = 100)
+                
                 return(time_plot)
             })
         }

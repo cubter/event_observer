@@ -14,20 +14,22 @@ The app consists of three main parts:
 **Shiny app** itself is separated into modules. Those are responsible for rendering the timeline, map & statistics correspondingly. By rendering I mean dynamic rendering as well: *each time the user moves to another region on the map, the timeline gets redrawn to include only the points within the map bounds*. That said, the map's points are static, while the timeline's ones are not. 
 I have spent much time trying to debug the problem with passing the map bounds out of the module to "normal" Shiny. 
 
-The only essential non-modularised part remained is the *one processing the data for the species selected received from Redis*. I experienced issues when trying to modularise it, so I had to refuse from this idea. Moreover, this part has no UI, and shiny modules, as far as I know, should always have the UI & server counterparts. 
+The only essential non-modularised part remained is the *one processing the data from DB*. I experienced issues when trying to modularise it, so I had to refuse from this idea. Moreover, this part has no UI, and shiny modules, as far as I know, should always have the UI & server counterparts. 
 
 For the plots' visualisation I used `plotly`.
 
 As for the UI part, in some places I used `shinyWidgets` & `bslib`. If the app loading performance is not acceptable, I could drop them. 
 
-Lastly, if the user has selected species with more than 30 000 events, a notification is shown, saying that the rendering may take time.
+Also, if the user has selected species with more than 30 000 events, a notification is shown, saying that the rendering may take time.
+
+Lastly, perhaps I should've followed the best practice & moved regular R functions to separate files, but I was just lazy to do it. :)
 
 ### What I haven't achieved
 - Tests. Yes, I know how important they are, however I didn't have enough time to write them. For an app to be used in prod., I'd def. use them. 
 
 - Proper exception handling: I should have used `try`/`tryCatch` statements extensively. But once again: it's about time. 
 
-- You may notice that the map's points' rendering tends to be slow once the number of events is equal to tens of thousands. Hence, I'm showing both a progress bar & a notification, so that the user doesn't think, the app has suddenly broken. Besides, two solutions for slow rendering I've been able to found: 
+- You may notice that the map's points' rendering tends to be slow once the number of events is equal to tens of thousands. Hence, I'm showing both a progress bar & a notification, so that the user doesn't think, the app has suddenly broken. Besides, two solutions for this I've been able to found: 
 	1. As a workaround, I've enabled clustering of nearby points by default. It seems, it makes the rendering faster.
 	2. Second, one could use `mapdeck` instead of leaflet. Mapdeck relies on extensive usage of `webGL`, which makes rendering significantly faster, but the drawback is that it uses Mapbox & requires its API token. Because I don't know, whether a proprietary solution is appropriate for this app, I had to refuse from this approach.  
 
@@ -64,18 +66,18 @@ I've written `C++` code to assign weights to timeline's points, so that they've 
 > Despite this, sourcing a C++ file does take time initially, and it seems it's a bottleneck right 
 > now during the app's launch.
 
-As regards maps, because there're species with myriads of events, I render them with `webGL`. The drawback is that old browsers do not support it. An optimal solution here would be detecting, if the browser supports WebGL and using it then, reverting to the old CPU rendering otherwise. But I'm not sure, that it can be implemented other than writing JS code.
+As regards maps, because there're species with myriads of events, I render them with `webGL`. The drawback is that old browsers do not support it. An optimal solution here would be detecting, if the browser supports WebGL and using it then, reverting to the old CPU rendering otherwise, but I'm not aware, that it can be implemented other than writing JS code.
 
 As regards plots, I use `plotly`'s `canvas` option to improve rendering. Still, hundreds of thousands of events render rel. slow.
 
-Lastly, I use Redis pipelining features which are supported by Redux (R library for Redis). This helps significantly improve the uploading performance. Other option would be Redis scripting, but considering that I typically have no more than 5-10k unique scientific names per file, I decided to follow the way of pipelining.  
+Lastly, I use Redis pipelining features which are supported by `Redux` (R library for Redis). This helps significantly improve the uploading performance. Other option would be Redis scripting, but considering that I typically have no more than 5-10k unique scientific names per file, I decided to follow the former way.  
  
-Besides, because Redis de-facto stores every value as a string, when extracting dates, I've firstly to convert them to `double`s to enable filtering. `Lubridate` here has helped improve the performance significantly (0.9s vs 7s for 500K date strings) as compared to the built-in `as.Date()`. 
+Besides, because Redis de-facto stores every value as a string, when extracting dates, I've firstly to convert them to `double`s to enable filtering. `Lubridate` here has helped vastly improve the performance (0.9s vs 7s for 500K date strings) as compared to the built-in `as.Date()`. 
 
 However, I assume that some code blocks still remain unoptimised. For example, I could try to parallelise the processing of `occurrence` files. But that'd require rewriting the existing loops to remove data dependencies.  
 
 ### Infrastructure 
-I've deployed the app on my own VPS (2 CPUs, 2 GB RAM) using `Shiny server`. I preferred Shiny server mostly because it allows a faster deployment. Though the Shinyproxy's approach seems more modern as it relies on containers, isolating apps from each other.
+I've deployed the app on my own VPS (2 CPUs, 2 GB RAM) using `Shiny server`. I preferred Shiny server mostly because it allows a faster deployment. Though the Shinyproxy's approach seems more modern as it relies on containers.
 
 Please, note that the instances of Shiny server & Redis out there have default configurations. Had I dealt with a production-ready app, I'd have definitely customised their security settings beyond simple firewalling. I'd have also probably separated the app's server from the DB's one. 
 
@@ -98,6 +100,6 @@ Not used, though, I'm sure, working with `WebSockets` would constitute the app's
 	
 ## P.S. On DB updates
 
-Despite that R's evrinoments are the fastest implementation of hash tables available in R, the avg. speed of processing a .csv file with 1500000 lines is several minutes, making up between an hour and two for the whole data set. This is a barely acceptable speed, provided the data are updated frequently; that's why my next step here would also be switching to `Rcpp` & using STL's unordered maps.
+Despite that R's evironments are the fastest implementation of hash tables available in R, the avg. speed of processing a .csv file with 1500000 lines is several minutes, making up between an hour and two for the whole data set. This is a barely acceptable speed, provided the data are updated frequently; that's why my next step here would also be switching to `Rcpp` & using STL's unordered maps.
 
 I could also send perhaps 10x more commands to Redis without prior construction of the indexes at all, based on the assumption that Redis will handle hash insertions quicker. But that'd require significantly more requests to the DB.
