@@ -29,13 +29,15 @@ mapServer <- function(id, eventsData, markersColor, clusteringOptions = NULL)
                 if (map_data %>% is_empty())
                     return()
 
-                lat_long_popups <- paste("<b>Place</b>:", map_data$coord)
-                datetimes_popups <- paste("<br><strong>Time:</strong>",
-                                          map_data$date,
-                                          map_data$time)
+                # lat_long_popups <- paste("<b>Place</b>:", 
+                #                          map_data$lat, 
+                #                          map_data$long)
+                # datetimes_popups <- paste("<br><b>Time:</b>",
+                #                           map_data$date,
+                #                           map_data$time)
 
-                map_data %<>%
-                    dplyr::mutate(., popup = paste(lat_long_popups, datetimes_popups))
+                # map_data %<>%
+                #     dplyr::mutate(., popup = paste(lat_long_popups, datetimes_popups))
 
                 leafletProxy("map", data = map_data) %>%
                     clearMarkers() %>%
