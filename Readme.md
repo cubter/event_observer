@@ -74,7 +74,8 @@ Lastly, I use Redis pipelining features which are supported by `Redux` (R librar
  
 Besides, because Redis de-facto stores every value as a string, when extracting dates, I've firstly to convert them to `double`s to enable filtering. `Lubridate` here has helped vastly improve the performance (0.9s vs 7s for 500K date strings) as compared to the built-in `as.Date()`. 
 
-Caching. I've added memoisation of the results of the most time-intesive functions' using `memoise`. Caching is implemented on the appliance level, which means it's shared across the users' sessions.
+Caching. I've added memoisation of the results of the most time-intesive functions' using `memoise`. Caching is implemented on the appliance level, which means it's shared across the users' sessions. Besides, I use disk cache, i.e. caching also persists across different processes. 
+It'd be more optimal to log selection of species to understand what species are requested most (my biological assumption is that such distribution will be close to normal), but that'd be too complicated, as `bindCache` now only supports LRU & FIFO types. 
 
 However, I assume that some code blocks still remain unoptimised. For example, I could try to parallelise the processing of `occurrence` files. But that'd require rewriting the existing loops to remove data dependencies.  
 
