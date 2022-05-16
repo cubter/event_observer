@@ -16,6 +16,9 @@ library(lubridate)
 library(memoise)
 library(cachem)
 
+# I use disk caching for the cache to persist across multiple processes.
+shinyOptions(cache = cachem::cache_disk(".rcache", max_size = 2e9))
+
 # Initialising connection to Redis.
 r <- redux::hiredis()
 
@@ -52,6 +55,7 @@ last_update_date <- ifelse(file.exists(last_update_date_file_path),
                                extract2("V1"),
                            "Unknown")
 
+
 # Sourcing Rcpp file
 sourceCpp("weights_assigner.cpp")
 
@@ -65,7 +69,7 @@ sourceCpp("weights_assigner.cpp")
 # faster.
 # 
 # Setting cache directory for memoise.
-disk_cache <- cachem::cache_disk(".rcache")
+disk_cache <- cachem::cache_disk(".rcache", max_size = 2e9)
 
 # Functions to cache.
 mem_LRANGE <- memoise(r$LRANGE, cache = disk_cache)
@@ -216,7 +220,8 @@ server <- function(input, output, session)
         
         return(out)
     }
-    )
+    ) %>% 
+        bindCache(filteredData())
     
     updateProgressBar(session = session, id = "pb0", value = 65)
     

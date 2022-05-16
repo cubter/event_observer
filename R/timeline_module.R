@@ -83,7 +83,8 @@ timelineServer <- function(id, observationsInBoundsData, color)
                 progress$set(value = 100)
                 
                 return(time_plot)
-            })
+            }) %>%
+                bindCache(observationsInBoundsData(), color())
         }
     )
 }
