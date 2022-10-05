@@ -34,10 +34,10 @@ Lastly, perhaps I should've followed the best practice & moved regular R functio
 I store all the data in a `Redis` instance. The motivation for this was that Redis is fast, and the data, on the other side, are not large.  
 
 The structure is as follows:
-- `list`s \<scientific name: coordinates\> (coord. are pasted together as a string)
-- `list`s \<scientific name: dateTimes\> (dates & time are pasted together as a string)
-- `hash`es \<vernacular name: scientific name\>
-- `sorted set`s \<year: number of observations\>
+- *list* \<scientific name: coordinates\> (coord. are pasted together as a string)
+- _list_ \<scientific name: dateTimes\> (dates & time are pasted together as a string)
+- _hashes_ \<vernacular name: scientific name\>
+- _sorted set_ \<year: number of observations\>
 
 Redis lists are linked lists, so inserting a new element takes O(1) time. This is a desired DS for storing coordinates, dates & times in the sense of insertion optimisation, but this also makes retrieving specific values impossible. 
 
