@@ -7,20 +7,20 @@
 
 using namespace Rcpp;
 
-struct RowWeight
+struct row_weight
 {
     int32_t r;     // row
     double  w;     // weight
 
-    RowWeight() :
+    row_weight() :
         r(0), w(0.1)
     { };
-    RowWeight(int row, double weight) :
+    row_weight(int row, double weight) :
         r(row), w(weight)
     { };
 };
 
-using rw_umap = std::unordered_map<String, std::vector<RowWeight>>;
+using rw_umap = std::unordered_map<String, std::vector<row_weight>>;
 
 // I assign the weight to each row so that every observation on a certain date 
 // will have a slightly bigger y-coordinate than the previous one. This helps draw
@@ -46,7 +46,7 @@ List assign_weights(const CharacterVector &dates, const IntegerVector &row_nums)
             continue;
         }
 
-        row_weights.try_emplace(*dates_it, std::vector<RowWeight>{{*rows_it, 0.1}});
+        row_weights.try_emplace(*dates_it, std::vector<row_weight>{{*rows_it, 0.1}});
     }
 
     // Populating the output vectors to return a list.
