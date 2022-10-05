@@ -1,5 +1,12 @@
 ## App
 
+An app depicting the distribution of observations of selected species on a map and a timeline.
+
+### Data
+This repository contains an example of the observations data. 
+The full data is [available here](https://link.storjshare.io/s/jw5s3jtfdzgnpv2oyey7oa7hziuq/app-data/event_observer_R-data.tar.gz).
+
+### Overview
 The app consists of three main parts:
 1. preprocessor files (`preprocessor.R` & `preprocessor.sh`), which split the original file into smaller ones (more in "Thoughts on performance optimisation" section below),
 2. redis uploader (`redis_uploader.R`) and 
@@ -30,7 +37,7 @@ Lastly, perhaps I should've followed the best practice & moved regular R functio
 	1. As a workaround, I've enabled clustering of nearby points by default. It seems, it makes the rendering faster.
 	2. One could use `mapdeck` instead of leaflet. Mapdeck relies on extensive usage of `webGL`, which makes rendering significantly faster, but the drawback is that it uses Mapbox & requires its API token. Because I don't know, whether a proprietary & potentially costly solution is appropriate for this app, I had to refuse from this approach.  
 
-## Data
+### Data processing & storage
 I store all the data in a `Redis` instance. The motivation for this was that Redis is fast, and the data, on the other side, are not large.  
 
 The structure is as follows:
