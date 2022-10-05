@@ -23,13 +23,12 @@ Also, if the user has selected species with more than 30 000 events, a notificat
 Lastly, perhaps I should've followed the best practice & moved regular R functions to separate files, but I was just lazy to do it. :)
 
 ### What I haven't achieved
-- Tests. Yes, I know how important they are, however I didn't have enough time to write them. For an app to be used in prod., I'd def. use them. 
 
 - Proper exception handling: I should have used `try`/`tryCatch` statements extensively. But once again: it's about time. 
 
 - You may notice that the map's points' rendering tends to be slow once the number of events is equal to tens of thousands. Hence, I'm showing both a progress bar & a notification, so that the user doesn't think, the app has suddenly broken. Besides, two solutions for this I've been able to found: 
 	1. As a workaround, I've enabled clustering of nearby points by default. It seems, it makes the rendering faster.
-	2. Second, one could use `mapdeck` instead of leaflet. Mapdeck relies on extensive usage of `webGL`, which makes rendering significantly faster, but the drawback is that it uses Mapbox & requires its API token. Because I don't know, whether a proprietary solution is appropriate for this app, I had to refuse from this approach.  
+	2. One could use `mapdeck` instead of leaflet. Mapdeck relies on extensive usage of `webGL`, which makes rendering significantly faster, but the drawback is that it uses Mapbox & requires its API token. Because I don't know, whether a proprietary & potentially costly solution is appropriate for this app, I had to refuse from this approach.  
 
 ## Data
 I store all the data in a `Redis` instance. The motivation for this was that Redis is fast, and the data, on the other side, are not large.  
